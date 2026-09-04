@@ -5,6 +5,11 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   base: '/Trash2Crash/',
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      input: 'index.source.html'
+    }
+  },
   server: {
     port: 5173,
     open: false
