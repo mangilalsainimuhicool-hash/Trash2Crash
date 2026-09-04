@@ -1,180 +1,184 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { Link } from 'react-router-dom';
 import {
   MapPin,
-  AlertTriangle,
+  BarChart3,
   CheckCircle2,
-  TrendingUp,
-  Filter,
-  BarChart,
-  ShieldCheck,
+  Camera,
+  History,
   ArrowRight,
-  Info
+  Layers,
+  Scale,
+  DollarSign
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { Link } from 'react-router-dom';
 
 const LocationAnalytics = () => {
-  const { locations } = useApp();
-  const [filterType, setFilterType] = useState('all');
+  const { scans, getAnalyticsSummary } = useApp();
+  const summary = getAnalyticsSummary();
 
-  const filteredLocations = locations.filter((loc) => {
-    if (filterType === 'all') return true;
-    if (filterType === 'attention') return loc.statusColor === 'red' || loc.statusColor === 'yellow';
-    if (filterType === 'good') return loc.statusColor === 'green';
-    return true;
-  });
+  // Group scans by location tag
+  const locationGroups = scans.reduce((acc, scan) => {
+    const loc = scan.location || 'General Scanner';
+    if (!acc[loc]) {
+      acc[loc] = { count: 0, weightKg: 0, value: 0 };
+    }
+    acc[loc].count += 1;
+    acc[loc].weightKg += Number(scan.estimatedWeight) || 0;
+    acc[loc].value += Number(scan.estimatedValue) || 0;
+    return acc;
+  }, {});
+
+  const locationsList = Object.keys(locationGroups).map((loc) => ({
+    name: loc,
+    count: locationGroups[loc].count,
+    weightKg: Number(locationGroups[loc].weightKg.toFixed(2)),
+    value: locationGroups[loc].value
+  }));
 
   return (
     <div className="page-wrapper location-analytics-page">
-      {/* HEADER BANNER */}
-      <section className="page-header-section">
-        <div className="container text-center">
-          <div className="prototype-badge-pill">
-            <span className="prototype-dot"></span>
-            <span>CAMPUS SPATIAL TELEMETRY • ACTIVE SENSOR NODES</span>
+      <div className="container">
+        {/* SIMPLE COMPACT HEADER */}
+        <div className="page-simple-header">
+          <div className="header-left">
+            <span className="badge-pill-simple">
+              <MapPin size={14} /> Scan Intelligence
+            </span>
+            <h1 className="simple-page-title">Location Analytics</h1>
+            <p className="simple-page-sub">
+              Scan distribution, waste volume, and recycling valuation summary.
+            </p>
           </div>
-          <h1 className="page-title">Location-Wise Waste Analytics</h1>
-          <p className="page-description">
-            Continuous zone-level segregation monitoring across academic buildings, residential hostels, libraries, and food courts.
-          </p>
-        </div>
-      </section>
 
-      {/* CRITICAL ATTENTION BANNER (WORST PERFORMER) */}
-      <section className="worst-performer-banner-section">
-        <div className="container">
-          <div className="hotspot-alert-banner">
-            <div className="hotspot-badge-tag">
-              <AlertTriangle size={18} className="text-red" />
-              <span>PRIMARY INTERVENTION REQUIRED</span>
-            </div>
-
-            <div className="hotspot-content-row">
-              <div className="hotspot-main-text">
-                <h2>Canteen Food Court requires immediate attention</h2>
-                <p>
-                  Segregation compliance has dropped to <strong>63%</strong> (37% contamination rate), primarily driven by gravy and oily takeaway containers discarded into Dry Recyclable bins during the 12:30 PM – 2:00 PM lunch rush.
-                </p>
-              </div>
-
-              <div className="hotspot-stats-box">
-                <div className="stat-circle-red">
-                  <span className="sc-val">63%</span>
-                  <span className="sc-lbl">Accuracy</span>
-                </div>
-                <div className="hotspot-actions">
-                  <Link to="/ai-insights" className="btn-primary btn-sm">
-                    View AI Action Plan →
-                  </Link>
-                </div>
-              </div>
-            </div>
+          <div className="header-actions">
+            <Link to="/ai-detection" className="btn-primary">
+              <Camera size={16} />
+              <span>Scan Item</span>
+            </Link>
+            <Link to="/analytics" className="btn-secondary">
+              <BarChart3 size={16} />
+              <span>General Analytics</span>
+            </Link>
           </div>
         </div>
-      </section>
 
-      {/* LOCATIONS GRID & FILTERS */}
-      <section className="locations-grid-section">
-        <div className="container">
-          <div className="section-toolbar">
-            <div className="toolbar-left">
-              <h3>All Monitored Campus Zones ({locations.length})</h3>
-              <p className="text-muted text-sm">Realtime telemetry from IoT bin vision nodes</p>
+        {/* 4 MANDATORY METRIC TILES */}
+        <div className="analytics-metrics-strip">
+          <div className="analytics-tiles-grid">
+            <div className="analytics-metric-tile">
+              <span className="tile-label">Total Scans</span>
+              <h2 className="tile-number">{summary.totalScans}</h2>
+              <span className="tile-subtext text-muted">Verified scan events</span>
             </div>
 
-            <div className="filter-pill-group">
-              <button
-                onClick={() => setFilterType('all')}
-                className={`filter-btn ${filterType === 'all' ? 'active' : ''}`}
-              >
-                All Zones
-              </button>
-              <button
-                onClick={() => setFilterType('attention')}
-                className={`filter-btn ${filterType === 'attention' ? 'active' : ''}`}
-              >
-                Needs Attention (2)
-              </button>
-              <button
-                onClick={() => setFilterType('good')}
-                className={`filter-btn ${filterType === 'good' ? 'active' : ''}`}
-              >
-                High Performing (4)
-              </button>
+            <div className="analytics-metric-tile">
+              <span className="tile-label">Total Waste</span>
+              <h2 className="tile-number">{summary.totalWeight} KG</h2>
+              <span className="tile-subtext text-muted">Cumulative weight</span>
+            </div>
+
+            <div className="analytics-metric-tile">
+              <span className="tile-label">Recyclable Waste</span>
+              <h2 className="tile-number text-blue">{summary.recyclablePercent}%</h2>
+              <span className="tile-subtext text-blue">{summary.recyclableCount} items recyclable</span>
+            </div>
+
+            <div className="analytics-metric-tile">
+              <span className="tile-label">Estimated Value</span>
+              <h2 className="tile-number text-green">₹{summary.totalValue}</h2>
+              <span className="tile-subtext text-green">Total cash valuation</span>
             </div>
           </div>
+        </div>
 
-          <div className="locations-card-grid">
-            {filteredLocations.map((loc) => {
-              const isRed = loc.statusColor === 'red';
-              const isYellow = loc.statusColor === 'yellow';
+        {summary.totalScans === 0 ? (
+          <div className="empty-analytics-card">
+            <div className="empty-icon-wrap">
+              <MapPin size={44} className="text-muted" />
+            </div>
+            <h2>No location scans recorded yet</h2>
+            <p>
+              Scans performed via the AI Detection scanner will appear here with material and valuation breakdowns.
+            </p>
+            <Link to="/ai-detection" className="btn-primary mt-3">
+              <Camera size={18} />
+              <span>Scan Waste Now</span>
+            </Link>
+          </div>
+        ) : (
+          <div className="analytics-content-grid">
+            {/* Simple Material Breakdown */}
+            <div className="chart-card">
+              <div className="chart-header">
+                <div>
+                  <h3 className="chart-title">Material Breakdown</h3>
+                  <p className="chart-subtitle">Percentages derived from recorded scans</p>
+                </div>
+              </div>
 
-              return (
-                <div
-                  key={loc.id}
-                  className={`location-card ${isRed ? 'loc-card-danger' : ''} ${
-                    isYellow ? 'loc-card-warning' : ''
-                  }`}
-                >
-                  <div className="loc-card-header">
-                    <div className="loc-title-group">
-                      <div className={`loc-icon-bubble loc-bubble-${loc.statusColor}`}>
-                        <MapPin size={20} />
-                      </div>
-                      <div>
-                        <h4 className="loc-name">{loc.name}</h4>
-                        <span className="loc-events-sub">{loc.totalEvents} Waste Events Logged</span>
-                      </div>
+              <div className="material-bars-container">
+                {summary.materialDistribution.map((item) => (
+                  <div key={item.key || item.name} className="material-bar-row">
+                    <div className="bar-info-line">
+                      <span className="mat-name">
+                        <span className="mat-dot" style={{ backgroundColor: item.color }}></span>
+                        <strong>{item.name}</strong>
+                      </span>
+                      <span className="mat-stat">
+                        <strong>{item.percentage}%</strong> ({item.count} items • {item.weightKg} kg)
+                      </span>
                     </div>
 
-                    <span className={`loc-status-pill pill-${loc.statusColor}`}>
-                      {loc.status}
-                    </span>
-                  </div>
-
-                  {/* Accuracy Bar */}
-                  <div className="loc-metric-block">
-                    <div className="loc-bar-label-row">
-                      <span>Segregation Accuracy</span>
-                      <strong className={isRed ? 'text-red' : isYellow ? 'text-amber' : 'text-green'}>
-                        {loc.accuracy}%
-                      </strong>
-                    </div>
-                    <div className="loc-progress-track">
+                    <div className="bar-track">
                       <div
-                        className={`loc-progress-fill bg-${loc.statusColor}`}
-                        style={{ width: `${loc.accuracy}%` }}
+                        className="bar-fill"
+                        style={{
+                          width: `${item.percentage}%`,
+                          backgroundColor: item.color
+                        }}
                       ></div>
                     </div>
                   </div>
+                ))}
+              </div>
+            </div>
 
-                  <div className="loc-details-list">
-                    <div className="loc-detail-row">
-                      <span className="lbl">Contamination Rate:</span>
-                      <span className="val font-semibold">{loc.contaminationRate}%</span>
+            {/* Scan Point Breakdown */}
+            <div className="chart-card">
+              <div className="chart-header">
+                <div>
+                  <h3 className="chart-title">Scan Points</h3>
+                  <p className="chart-subtitle">Locations where scans were recorded</p>
+                </div>
+              </div>
+
+              <div className="locations-simple-list">
+                {locationsList.map((loc) => (
+                  <div key={loc.name} className="location-simple-row">
+                    <div className="loc-name-group">
+                      <MapPin size={16} className="text-green" />
+                      <strong>{loc.name}</strong>
                     </div>
-                    <div className="loc-detail-row">
-                      <span className="lbl">Dominant Materials:</span>
-                      <span className="val text-muted">{loc.primaryWaste}</span>
-                    </div>
-                    <div className="loc-detail-row">
-                      <span className="lbl">Weekly Trend:</span>
-                      <span className="val text-green font-medium">{loc.trend}</span>
+
+                    <div className="loc-stats-group">
+                      <span>{loc.count} scans</span>
+                      <span>{loc.weightKg} kg</span>
+                      <strong className="text-green">₹{loc.value}</strong>
                     </div>
                   </div>
+                ))}
+              </div>
 
-                  {loc.alert && (
-                    <div className="loc-alert-box">
-                      <AlertTriangle size={15} className="text-red flex-shrink-0" />
-                      <span>{loc.alert}</span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+              <div className="analytics-summary-callout mt-4">
+                <p>
+                  Recycling is active across <strong>{locationsList.length} scan source(s)</strong> with <strong>{summary.recyclablePercent}% compliance</strong>.
+                </p>
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
+        )}
+      </div>
     </div>
   );
 };

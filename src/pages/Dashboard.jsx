@@ -21,13 +21,14 @@ import {
   Check,
   ShieldCheck,
   Smartphone,
-  ArrowRight
+  ArrowRight,
+  Truck
 } from 'lucide-react';
 import StatCard from '../components/StatCard';
 import { useApp } from '../context/AppContext';
 
 const Dashboard = () => {
-  const { user, stats, transactions, upcomingPickups, cancelPickup, showToast, qrTracking } = useApp();
+  const { user, stats, transactions, upcomingPickups, cancelPickup, completePickup, walletBalance, showToast, qrTracking } = useApp();
   const [filterStatus, setFilterStatus] = useState('All');
   const [certModalOpen, setCertModalOpen] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState(qrTracking[0]);
@@ -106,6 +107,34 @@ const Dashboard = () => {
                 <PlusCircle size={16} />
                 <span>Schedule Pickup</span>
               </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* USER DASHBOARD WALLET BANNER */}
+      <section className="dashboard-wallet-section">
+        <div className="container">
+          <div className="dash-wallet-hero-card">
+            <div className="dash-wallet-left">
+              <div className="dash-wallet-badge">
+                <Wallet size={16} className="text-green" />
+                <span>USER DASHBOARD REWARDS WALLET</span>
+              </div>
+              <div className="dash-wallet-balance-row">
+                <h2 className="dash-wallet-amount">₹{walletBalance}</h2>
+                <span className="dash-wallet-status-tag">Live Balance</span>
+              </div>
+              <p className="dash-wallet-explainer">
+                Money is credited directly here whenever a doorstep recycling worker completes a waste pickup.
+              </p>
+            </div>
+
+            <div className="dash-wallet-right">
+              <button onClick={handleSimulateUpiReward} className="btn-primary">
+                <Zap size={16} />
+                <span>{upiClaimed ? '✓ Dispatched to UPI' : 'Instant UPI Withdrawal'}</span>
+              </button>
             </div>
           </div>
         </div>
@@ -205,7 +234,7 @@ const Dashboard = () => {
                         </div>
 
                         <div className="item-agent-info">
-                          <span className="agent-label">Assigned Partner:</span>
+                          <span className="agent-label">Assigned Worker:</span>
                           <span className="agent-val">{pickup.agentName}</span>
                           <button
                             onClick={() => cancelPickup(pickup.id)}
@@ -213,6 +242,24 @@ const Dashboard = () => {
                             title="Cancel this pickup"
                           >
                             Cancel
+                          </button>
+                        </div>
+
+                        {/* WORKER PICKUP VERIFICATION & WALLET CREDIT ACTION */}
+                        <div className="worker-pickup-action-box">
+                          <div className="worker-handover-status">
+                            <Truck size={16} className="text-green flex-shrink-0" />
+                            <span>
+                              Worker scheduled for doorstep collection (~{pickup.quantity} kg {pickup.wasteType}).
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => completePickup(pickup.id)}
+                            className="btn-confirm-worker-pickup"
+                            title="Confirm waste handover to worker and add money to wallet"
+                          >
+                            <CheckCircle2 size={16} />
+                            <span>Worker Picked Up Waste → Add ₹{pickup.estimatedEarnings} to Wallet</span>
                           </button>
                         </div>
                       </div>

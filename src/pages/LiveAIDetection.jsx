@@ -1,260 +1,180 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Camera,
   Upload,
-  Video,
-  Play,
-  Pause,
   Sparkles,
-  AlertTriangle,
   CheckCircle2,
-  Cpu,
-  Layers,
-  MapPin,
-  Clock,
-  Scan,
+  XCircle,
+  AlertTriangle,
   RotateCcw,
-  ShieldCheck,
-  Info,
-  DollarSign,
+  History,
   ArrowRight,
-  Edit3,
-  X,
-  FileImage,
+  ArrowLeft,
   RefreshCw,
-  Sliders,
+  Info,
+  Scale,
+  DollarSign,
+  Layers,
   Check,
-  HelpCircle,
-  TrendingUp
+  Zap,
+  Wallet,
+  MapPin,
+  BarChart3,
+  ChevronRight,
+  FileCheck2,
+  Truck,
+  Clock,
+  LayoutDashboard
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import DetectionCard from '../components/DetectionCard';
+import { classifyWasteImage } from '../services/aiClassifier';
+import {
+  MANUAL_CATEGORIES,
+  getMaterialConfig,
+  calculateEstimatedValue
+} from '../data/materialConfig';
 
-// Sample waste vector images (base64 SVG data URIs) for 1-click instant test
-const SAMPLE_WASTE_IMAGES = {
-  bottle: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect width="300" height="300" fill="%23f0fdf4"/><path d="M130 50 h40 v25 h-40 z" fill="%233b82f6"/><path d="M120 75 h60 v30 l20 30 v110 c0 10 -10 15 -20 15 h-60 c-10 0 -20 -5 -20 -15 v-110 l20 -30 z" fill="%2393c5fd" opacity="0.8" stroke="%232563eb" stroke-width="4"/><path d="M135 150 h30 v30 h-30 z" fill="%232563eb"/><text x="150" y="270" font-family="sans-serif" font-size="14" font-weight="bold" fill="%231e3a8a" text-anchor="middle">PET 1 • 500ml Clean</text></svg>`,
-  banana: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect width="300" height="300" fill="%23fefce8"/><path d="M70 200 C 100 240, 200 240, 230 110 C 230 110, 225 150, 160 190 C 110 220, 80 205, 70 200 Z" fill="%23eab308" stroke="%23ca8a04" stroke-width="4"/><circle cx="230" cy="110" r="5" fill="%23713f12"/><text x="150" y="270" font-family="sans-serif" font-size="14" font-weight="bold" fill="%23854d0e" text-anchor="middle">Fruit Peel • Compostable</text></svg>`,
-  pizza: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect width="300" height="300" fill="%23fff7ed"/><path d="M60 100 l90 -40 l90 40 l-90 40 z" fill="%23fed7aa" stroke="%23ea580c" stroke-width="4"/><path d="M60 100 v80 l90 40 v-80 z" fill="%23fdba74" stroke="%23ea580c" stroke-width="4"/><path d="M240 100 v80 l-90 40 v-80 z" fill="%23fb923c" stroke="%23ea580c" stroke-width="4"/><ellipse cx="150" cy="100" rx="35" ry="15" fill="%23ef4444" opacity="0.6"/><text x="150" y="270" font-family="sans-serif" font-size="14" font-weight="bold" fill="%239a3412" text-anchor="middle">Greasy Pizza Box • Contaminated</text></svg>`,
-  can: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect width="300" height="300" fill="%23f8fafc"/><ellipse cx="150" cy="70" rx="45" ry="16" fill="%23cbd5e1" stroke="%23475569" stroke-width="4"/><path d="M105 70 v140 c0 15 20 20 45 20 s45 -5 45 -20 v-140 z" fill="%2394a3b8" stroke="%23475569" stroke-width="4"/><ellipse cx="150" cy="140" rx="45" ry="12" fill="%23ef4444"/><text x="150" y="270" font-family="sans-serif" font-size="14" font-weight="bold" fill="%23334155" text-anchor="middle">Aluminium Can • Recyclable</text></svg>`,
-  battery: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect width="300" height="300" fill="%23fff1f2"/><rect x="135" y="55" width="30" height="15" fill="%23e11d48" rx="3"/><rect x="110" y="70" width="80" height="150" fill="%230f172a" stroke="%23e11d48" stroke-width="4" rx="8"/><rect x="110" y="160" width="80" height="60" fill="%23f43f5e"/><text x="150" y="145" font-family="sans-serif" font-size="28" font-weight="bold" fill="%23ffffff" text-anchor="middle">⚡ 9V</text><text x="150" y="270" font-family="sans-serif" font-size="14" font-weight="bold" fill="%23be123c" text-anchor="middle">Special E-Waste • Hazardous</text></svg>`,
-  coffee: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect width="300" height="300" fill="%23fafaf9"/><path d="M110 90 l15 130 h50 l15 -130 z" fill="%23d6d3d1" stroke="%2378716c" stroke-width="4"/><ellipse cx="150" cy="90" rx="45" ry="12" fill="%2344403c"/><text x="150" y="270" font-family="sans-serif" font-size="14" font-weight="bold" fill="%2344403c" text-anchor="middle">Coffee Cup + Plastic Lid</text></svg>`
-};
-
-const SAMPLE_PRESETS = [
+// Realistic sample waste vector graphics for 1-click demo testing in AI Mode
+const SAMPLE_TEST_ITEMS = [
   {
-    id: 'bottle',
-    name: 'PET Water Bottle',
+    id: 'sample-bottle',
+    label: 'Plastic Bottle',
     icon: '🥤',
-    category: 'Dry Waste',
-    classificationId: 'dry',
-    binUsed: 'Blue Bin (Dry)',
-    isContaminated: false,
-    confidence: 96,
-    rewardValue: '₹2.50',
-    details: 'Unsoiled PET mineral bottle. Label clean, suitable for direct baling and mechanical recycling.',
-    image: SAMPLE_WASTE_IMAGES.bottle
+    categoryHint: 'plastic',
+    image: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320"><rect width="320" height="320" fill="%23f0fdf4"/><path d="M145 40 h30 v25 h-30 z" fill="%232563eb"/><path d="M135 65 h50 v25 l20 35 v125 c0 15 -10 20 -25 20 h-40 c-15 0 -25 -5 -25 -20 v-125 l20 -35 z" fill="%2393c5fd" opacity="0.85" stroke="%231d4ed8" stroke-width="4"/><path d="M145 140 h30 v35 h-30 z" fill="%232563eb"/><text x="160" y="295" font-family="sans-serif" font-size="15" font-weight="bold" fill="%231e3a8a" text-anchor="middle">PET Water Bottle</text></svg>`
   },
   {
-    id: 'banana',
-    name: 'Banana Peel / Pulp',
-    icon: '🍌',
-    category: 'Wet Waste',
-    classificationId: 'wet',
-    binUsed: 'Green Bin (Wet)',
-    isContaminated: false,
-    confidence: 98,
-    rewardValue: '1 Eco Point',
-    details: 'Pure biodegradable fruit waste. Routed directly to campus aerobic composting digester.',
-    image: SAMPLE_WASTE_IMAGES.banana
+    id: 'sample-box',
+    label: 'Cardboard Box',
+    icon: '📦',
+    categoryHint: 'cardboard',
+    image: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320"><rect width="320" height="320" fill="%23fffbeb"/><path d="M70 100 l90 -45 l90 45 l-90 45 z" fill="%23fde68a" stroke="%23d97706" stroke-width="4"/><path d="M70 100 v90 l90 45 v-90 z" fill="%23fcd34d" stroke="%23d97706" stroke-width="4"/><path d="M250 100 v90 l-90 45 v-90 z" fill="%23fbbf24" stroke="%23d97706" stroke-width="4"/><text x="160" y="295" font-family="sans-serif" font-size="15" font-weight="bold" fill="%2392400e" text-anchor="middle">Corrugated Cardboard</text></svg>`
   },
   {
-    id: 'pizza',
-    name: 'Oily Pizza Cardboard Box',
-    icon: '🍕',
-    category: 'Dry Waste',
-    classificationId: 'dry',
-    binUsed: 'Blue Bin (Dry)',
-    isContaminated: true,
-    confidence: 93,
-    rewardValue: '0 Eco Points',
-    expectedCategory: 'Clean Cardboard (Dry Bin)',
-    detectedCategory: 'Soiled with Food Oil/Gravy (Wet Contamination)',
-    details: '⚠️ CONTAMINATION DETECTED: Corrugated fiberboard soaked with grease. Cannot be processed by paper mills without cleaning.',
-    recommendation: 'Compost contaminated bottom half; tear clean cardboard lid for recycling.',
-    image: SAMPLE_WASTE_IMAGES.pizza
-  },
-  {
-    id: 'can',
-    name: 'Aluminium Beverage Can',
+    id: 'sample-can',
+    label: 'Aluminium Can',
     icon: '🥫',
-    category: 'Dry Waste',
-    classificationId: 'dry',
-    binUsed: 'Blue Bin (Dry)',
-    isContaminated: false,
-    confidence: 97,
-    rewardValue: '₹4.00',
-    details: 'High-purity aluminium alloy 3104 can. 100% infinitely recyclable with 95% energy conservation.',
-    image: SAMPLE_WASTE_IMAGES.can
+    categoryHint: 'can',
+    image: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320"><rect width="320" height="320" fill="%23f8fafc"/><ellipse cx="160" cy="70" rx="45" ry="16" fill="%23cbd5e1" stroke="%23475569" stroke-width="4"/><path d="M115 70 v140 c0 15 20 20 45 20 s45 -5 45 -20 v-140 z" fill="%2394a3b8" stroke="%23475569" stroke-width="4"/><ellipse cx="160" cy="140" rx="45" ry="12" fill="%23ef4444"/><text x="160" y="295" font-family="sans-serif" font-size="15" font-weight="bold" fill="%23334155" text-anchor="middle">Aluminium Can</text></svg>`
   },
   {
-    id: 'battery',
-    name: 'Lithium Battery / E-Waste',
+    id: 'sample-banana',
+    label: 'Organic Waste',
+    icon: '🍌',
+    categoryHint: 'banana',
+    image: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320"><rect width="320" height="320" fill="%23fefce8"/><path d="M80 210 C 110 250, 210 250, 245 115 C 245 115, 235 160, 170 200 C 120 230, 90 215, 80 210 Z" fill="%23eab308" stroke="%23ca8a04" stroke-width="4"/><circle cx="245" cy="115" r="5" fill="%23713f12"/><text x="160" y="295" font-family="sans-serif" font-size="15" font-weight="bold" fill="%23854d0e" text-anchor="middle">Banana Peel / Organic</text></svg>`
+  },
+  {
+    id: 'sample-battery',
+    label: 'E-Waste / Battery',
     icon: '🔋',
-    category: 'Special / E-Waste',
-    classificationId: 'special',
-    binUsed: 'Orange Bin (Special)',
-    isContaminated: false,
-    confidence: 95,
-    rewardValue: '₹5.00',
-    details: 'Hazardous domestic electronic waste. Contains reactive chemicals. Dispatched to certified safe dismantling hub.',
-    image: SAMPLE_WASTE_IMAGES.battery
-  },
-  {
-    id: 'coffee',
-    name: 'Takeaway Cup w/ Lid',
-    icon: '☕',
-    category: 'Dry Waste',
-    classificationId: 'dry',
-    binUsed: 'Blue Bin (Dry)',
-    isContaminated: true,
-    confidence: 89,
-    rewardValue: '0 Eco Points',
-    expectedCategory: 'Separate: Lid (Dry) + Cup (Waxed Paper)',
-    detectedCategory: 'Mixed Material & Coffee Liquid Residue',
-    details: '⚠️ CONTAMINATION DETECTED: Cup has residual liquid and polyethylene wax liner with polystyrene plastic lid.',
-    recommendation: 'Empty remaining liquid before sorting. Remove plastic lid (#6 PS) from paper cup.',
-    image: SAMPLE_WASTE_IMAGES.coffee
+    categoryHint: 'battery',
+    image: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320"><rect width="320" height="320" fill="%23fff1f2"/><rect x="145" y="55" width="30" height="15" fill="%23e11d48" rx="3"/><rect x="120" y="70" width="80" height="150" fill="%230f172a" stroke="%23e11d48" stroke-width="4" rx="8"/><rect x="120" y="160" width="80" height="60" fill="%23f43f5e"/><text x="160" y="145" font-family="sans-serif" font-size="28" font-weight="bold" fill="%23ffffff" text-anchor="middle">⚡ 9V</text><text x="160" y="295" font-family="sans-serif" font-size="15" font-weight="bold" fill="%23be123c" text-anchor="middle">Lithium Battery</text></svg>`
   }
 ];
 
 const LiveAIDetection = () => {
-  const {
-    activeDetection,
-    activeDetectionIndex,
-    selectDetection,
-    isDemoRunning,
-    startDemo,
-    stopDemo,
-    aiEvents,
-    classifications,
-    campusStats,
-    analyzeUploadedImage,
-    correctDetection,
-    showToast
-  } = useApp();
+  const { walletBalance, scheduleWastePickup, completePickup, showToast } = useApp();
+  const navigate = useNavigate();
 
-  // Mode Selection: 'camera' | 'upload' | 'cctv'
-  const [inputMode, setInputMode] = useState('camera');
+  // -------------------------------------------------------------
+  // SUBMISSION MODE: 'ai' (Option 1) vs 'manual' (Option 2)
+  // -------------------------------------------------------------
+  const [submissionMode, setSubmissionMode] = useState('ai');
 
-  // Camera States
+  // Source tab for AI Mode: 'upload' | 'camera'
+  const [activeTab, setActiveTab] = useState('upload');
+
+  // Input Image States
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [fileName, setFileName] = useState('');
+  const [selectedSampleId, setSelectedSampleId] = useState(null);
+
+  // Manual Mode Category Selection
+  const [manualSelectedCatId, setManualSelectedCatId] = useState('');
+
+  // Camera states
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraLoading, setCameraLoading] = useState(false);
   const [cameraError, setCameraError] = useState(null);
-  const [facingMode, setFacingMode] = useState('environment'); // 'user' or 'environment'
-  const [cameraSnapshot, setCameraSnapshot] = useState(null);
+  const [facingMode, setFacingMode] = useState('environment');
 
-  // Upload States
-  const [dragActive, setDragActive] = useState(false);
-  const [uploadedPreview, setUploadedPreview] = useState(null);
-  const [selectedPresetId, setSelectedPresetId] = useState(null);
+  // AI Classification state
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiDetectionResult, setAiDetectionResult] = useState(null);
+  const [scanError, setScanError] = useState(null);
 
-  // CCTV Feed States
-  const [selectedFeed, setSelectedFeed] = useState('CAM-04 (Canteen Counter B)');
-  const feeds = [
-    'CAM-04 (Canteen Counter B)',
-    'CAM-02 (Central Library Entry)',
-    'CAM-07 (Student Hostel H1 Courtyard)',
-    'CAM-09 (Science Lab Corridor)'
-  ];
+  // -------------------------------------------------------------
+  // 3-STEP TRASH2CASH WORKFLOW STATES
+  // Step 1: Capture & Classify
+  // Step 2: Verify & Reward
+  // Step 3: Engage & Improve
+  // -------------------------------------------------------------
+  const [workflowStep, setWorkflowStep] = useState(0); // 0 = not started, 1 = classify, 2 = verify, 3 = engage
+  const [stagedItem, setStagedItem] = useState(null);
 
-  // AI Correction Modal States
-  const [correctionModalOpen, setCorrectionModalOpen] = useState(false);
-  const [targetToCorrect, setTargetToCorrect] = useState(null);
-  const [correctedCategory, setCorrectedCategory] = useState('Dry Waste');
-  const [correctedObjectName, setCorrectedObjectName] = useState('');
-  const [isContaminatedToggle, setIsContaminatedToggle] = useState(false);
-  const [contaminationReason, setContaminationReason] = useState('None');
-  const [scrapValueInput, setScrapValueInput] = useState('₹2.50');
-  const [correctionNotes, setCorrectionNotes] = useState('');
+  // Stage 2 inputs: Weight & Location
+  const [weightKg, setWeightKg] = useState(0.25); // Default 0.25 kg matching prompt
+  const [location, setLocation] = useState('Flat 402, Green Meadows, Bengaluru');
 
-  // Correction Hub Filter
-  const [hubFilter, setHubFilter] = useState('all'); // 'all' | 'unverified' | 'contaminated' | 'corrected'
+  // Stage 3 Output: Summary of submitted pickup & worker handover
+  const [scheduledPickupData, setScheduledPickupData] = useState(null);
+  const [workerPickupCompleted, setWorkerPickupCompleted] = useState(false);
 
-  // Refs for camera & off-screen canvas
+  // Refs
   const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const cameraStreamRef = useRef(null);
+  const streamRef = useRef(null);
   const fileInputRef = useRef(null);
+  const manualFileInputRef = useRef(null);
+  const workflowRef = useRef(null);
 
-  // Clean up camera stream on unmount
+  // Cleanup camera on unmount
   useEffect(() => {
     return () => {
-      stopCameraStream();
+      stopCamera();
     };
   }, []);
 
   // -------------------------------------------------------------
-  // CAMERA FUNCTIONS
+  // CAMERA METHODS
   // -------------------------------------------------------------
-  const startCameraStream = async (mode = facingMode) => {
+  const startCamera = async (mode = facingMode) => {
     setCameraLoading(true);
     setCameraError(null);
-    setCameraSnapshot(null);
-
-    // Stop existing stream if any
-    stopCameraStream();
+    stopCamera();
 
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Camera hardware access is not supported by this browser.');
+        throw new Error('Camera not supported in this browser.');
       }
 
-      const constraints = {
-        video: {
-          facingMode: mode,
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        },
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: mode, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false
-      };
+      }).catch(() => {
+        return navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      });
 
-      let stream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
-      } catch (err) {
-        // Fallback to basic video constraint if specific facingMode fails
-        console.warn('Advanced camera constraints failed, attempting basic video:', err);
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-      }
-
-      cameraStreamRef.current = stream;
-
+      streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
       }
-
       setCameraActive(true);
       setCameraLoading(false);
-      showToast('Camera stream connected. Point at waste item to scan.', 'info');
     } catch (err) {
-      console.error('Failed to initialize webcam:', err);
+      console.error('Webcam start failed:', err);
       setCameraLoading(false);
       setCameraActive(false);
-      setCameraError(
-        err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'
-          ? 'Camera permission denied. Please allow camera access in browser settings or use the Photo Upload tab.'
-          : 'No camera device detected. Switch to Photo Upload or CCTV Stream to test AI detection.'
-      );
-      showToast('Camera unavailable. Using fallback photo upload mode.', 'warning');
+      setCameraError('Camera access denied or unavailable. Please use the Upload Photo tab.');
     }
   };
 
-  const stopCameraStream = () => {
-    if (cameraStreamRef.current) {
-      cameraStreamRef.current.getTracks().forEach((track) => track.stop());
-      cameraStreamRef.current = null;
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
     }
     if (videoRef.current) {
       videoRef.current.srcObject = null;
@@ -262,1028 +182,918 @@ const LiveAIDetection = () => {
     setCameraActive(false);
   };
 
-  const switchCameraFacingMode = () => {
-    const nextMode = facingMode === 'environment' ? 'user' : 'environment';
-    setFacingMode(nextMode);
+  const switchCameraFacing = () => {
+    const next = facingMode === 'environment' ? 'user' : 'environment';
+    setFacingMode(next);
     if (cameraActive) {
-      startCameraStream(nextMode);
+      startCamera(next);
     }
   };
 
-  // Instant Camera Shutter Capture
-  const handleSnapAndDetect = () => {
-    if (!videoRef.current) return;
-
-    try {
-      const video = videoRef.current;
-      const canvas = canvasRef.current || document.createElement('canvas');
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
-
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const snapshotDataUrl = canvas.toDataURL('image/jpeg', 0.9);
-      setCameraSnapshot(snapshotDataUrl);
-
-      // AI Heuristic Recognition Engine
-      // Picks a random realistic detected object from the preset suite with 93-98% confidence
-      const detectedPreset = SAMPLE_PRESETS[Math.floor(Math.random() * SAMPLE_PRESETS.length)];
-      const confidence = Math.floor(93 + Math.random() * 6);
-
-      const newEvent = analyzeUploadedImage(snapshotDataUrl, {
-        object: detectedPreset.name,
-        confidence,
-        category: detectedPreset.category,
-        classificationId: detectedPreset.classificationId,
-        binUsed: detectedPreset.binUsed,
-        isContaminated: detectedPreset.isContaminated,
-        expectedCategory: detectedPreset.expectedCategory || detectedPreset.category,
-        detectedCategory: detectedPreset.detectedCategory || (detectedPreset.isContaminated ? 'Contaminated' : 'Clean'),
-        location: 'Device Optical Station (Webcam)',
-        details: `Live edge camera capture processed. Recognized ${detectedPreset.name} with ${confidence}% confidence.`,
-        rewardValue: detectedPreset.rewardValue,
-        imageUrl: snapshotDataUrl,
-        box: { x: 22, y: 20, width: 56, height: 56 }
-      });
-
-      showToast(`🎯 Object Detected: ${newEvent.object} (${confidence}% Confidence)`, 'success');
-    } catch (err) {
-      console.error('Error snapping photo:', err);
-      showToast('Failed to capture frame from camera.', 'error');
-    }
+  const captureFrameFromCamera = () => {
+    if (!videoRef.current) return null;
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    setSelectedImage(dataUrl);
+    setFileName('Camera_Snapshot.jpg');
+    setSelectedSampleId(null);
+    return dataUrl;
   };
 
   // -------------------------------------------------------------
-  // FILE UPLOAD & PRESET HANDLERS
+  // FILE UPLOAD HANDLERS
   // -------------------------------------------------------------
-  const handleFileUpload = (file) => {
-    if (!file || !file.type.startsWith('image/')) {
-      showToast('Please upload a valid image file (JPG, PNG, WEBP).', 'error');
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select a valid image file (JPG, PNG, WEBP).', 'error');
       return;
     }
 
+    setFileName(file.name);
+    setSelectedSampleId(null);
+    setAiDetectionResult(null);
+    setScanError(null);
+    setWorkflowStep(0);
+    setStagedItem(null);
+    setSubmissionOutcome(null);
+
     const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target.result;
-      setUploadedPreview(dataUrl);
-      setSelectedPresetId(null);
-
-      // Analyze image heuristically based on file name or generic detection
-      const name = file.name.toLowerCase();
-      let preset = SAMPLE_PRESETS[0]; // default plastic bottle
-      if (name.includes('banana') || name.includes('fruit') || name.includes('food') || name.includes('wet') || name.includes('peel')) {
-        preset = SAMPLE_PRESETS[1];
-      } else if (name.includes('pizza') || name.includes('box') || name.includes('cardboard') || name.includes('soiled')) {
-        preset = SAMPLE_PRESETS[2];
-      } else if (name.includes('can') || name.includes('tin') || name.includes('coke') || name.includes('metal')) {
-        preset = SAMPLE_PRESETS[3];
-      } else if (name.includes('battery') || name.includes('cable') || name.includes('electronic') || name.includes('cell')) {
-        preset = SAMPLE_PRESETS[4];
-      } else if (name.includes('cup') || name.includes('coffee') || name.includes('tea')) {
-        preset = SAMPLE_PRESETS[5];
-      }
-
-      analyzeUploadedImage(dataUrl, {
-        object: preset.name,
-        confidence: Math.floor(91 + Math.random() * 8),
-        category: preset.category,
-        classificationId: preset.classificationId,
-        binUsed: preset.binUsed,
-        isContaminated: preset.isContaminated,
-        expectedCategory: preset.expectedCategory || preset.category,
-        detectedCategory: preset.detectedCategory || (preset.isContaminated ? 'Contaminated Stream' : 'Clean Recyclable'),
-        location: 'Uploaded Image Analysis',
-        details: `Custom photo uploaded (${file.name}). Edge model identified: ${preset.name}.`,
-        rewardValue: preset.rewardValue,
-        imageUrl: dataUrl,
-        box: { x: 25, y: 22, width: 50, height: 52 }
-      });
+    reader.onload = (event) => {
+      setSelectedImage(event.target.result);
     };
     reader.readAsDataURL(file);
   };
 
-  const handleSelectPreset = (preset) => {
-    setSelectedPresetId(preset.id);
-    setUploadedPreview(preset.image);
+  const handleSelectSample = (sample) => {
+    setSelectedSampleId(sample.id);
+    setSelectedImage(sample.image);
+    setFileName(`${sample.categoryHint}.svg`);
+    setAiDetectionResult(null);
+    setScanError(null);
+    setWorkflowStep(0);
+    setStagedItem(null);
+    setSubmissionOutcome(null);
+  };
 
-    analyzeUploadedImage(preset.image, {
-      object: preset.name,
-      confidence: preset.confidence,
-      category: preset.category,
-      classificationId: preset.classificationId,
-      binUsed: preset.binUsed,
-      isContaminated: preset.isContaminated,
-      expectedCategory: preset.expectedCategory || preset.category,
-      detectedCategory: preset.detectedCategory || (preset.isContaminated ? 'Contaminated Stream' : 'Clean Recyclable'),
-      location: 'Sample Bench Test',
-      details: preset.details,
-      recommendation: preset.recommendation,
-      rewardValue: preset.rewardValue,
-      imageUrl: preset.image,
-      box: { x: 24, y: 22, width: 52, height: 54 }
+  // -------------------------------------------------------------
+  // OPTION 1: RUN AI DETECTION
+  // -------------------------------------------------------------
+  const handleRunAiScan = async () => {
+    let imageToScan = selectedImage;
+
+    // If currently in camera tab with live video and no frame captured yet, capture now
+    if (activeTab === 'camera' && cameraActive && !imageToScan) {
+      imageToScan = captureFrameFromCamera();
+    }
+
+    if (!imageToScan) {
+      setScanError('Please upload or capture an image first.');
+      showToast('Please upload or capture an image first.', 'warning');
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setScanError(null);
+
+    try {
+      // Run genuine AI classification
+      const result = await classifyWasteImage(imageToScan, fileName);
+      setAiDetectionResult(result);
+
+      // Determine material rate per kg
+      const config = getMaterialConfig(result.categoryKey);
+      const ratePerKg = config.valuePerKg || 0;
+
+      // Stage item for the 3-step Trash2Cash workflow
+      const item = {
+        wasteType: result.wasteType,
+        material: result.material,
+        category: result.category,
+        categoryKey: result.categoryKey,
+        confidence: result.confidence,
+        isManual: false,
+        recyclable: result.recyclable,
+        ratePerKg: ratePerKg,
+        imageUrl: imageToScan,
+        defaultWeight: config.avgUnitWeightKg || 0.25
+      };
+
+      setStagedItem(item);
+      setWeightKg(item.defaultWeight);
+      setWorkflowStep(1); // Advance to Stage 1: Capture & Classify
+
+      if (result.isLowConfidence) {
+        showToast('Low confidence detection. Please review the material.', 'warning');
+      } else {
+        showToast(`AI Detected: ${result.wasteType} (${result.confidence}%)`, 'success');
+      }
+
+      // Smooth scroll to 3-step section
+      setTimeout(() => {
+        workflowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 150);
+    } catch (err) {
+      console.error('Classification error:', err);
+      setScanError(err.message || 'Detection failed. Please try a clearer image.');
+      showToast('Detection failed. Please check image quality.', 'error');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  // -------------------------------------------------------------
+  // OPTION 2: MANUAL CATEGORY SELECTION
+  // -------------------------------------------------------------
+  const handleSelectManualCategory = (cat) => {
+    setManualSelectedCatId(cat.id);
+    const config = getMaterialConfig(cat.id);
+
+    const item = {
+      wasteType: cat.wasteType || config.wasteType,
+      material: cat.material || config.material,
+      category: cat.label,
+      categoryKey: cat.id,
+      confidence: 'Manual Selection',
+      isManual: true,
+      recyclable: cat.recyclable,
+      ratePerKg: cat.rate,
+      imageUrl: selectedImage,
+      defaultWeight: config.avgUnitWeightKg || 0.25
+    };
+
+    setStagedItem(item);
+    setWeightKg(item.defaultWeight);
+    setWorkflowStep(1); // Advance to Stage 1: Capture & Classify
+
+    showToast(`Category selected: ${cat.label} (₹${cat.rate}/kg)`, 'success');
+
+    setTimeout(() => {
+      workflowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 150);
+  };
+
+  // -------------------------------------------------------------
+  // 3-STEP PROCESS: ADVANCE / CONFIRM / SUBMIT
+  // -------------------------------------------------------------
+  const handleConfirmWaste = () => {
+    // Moves from Stage 1 (Capture & Classify) to Stage 2 (Verify & Reward)
+    setWorkflowStep(2);
+    setTimeout(() => {
+      workflowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  };
+
+  // Calculate live deterministic reward: Weight (kg) × Rate (₹/kg) = Reward (₹)
+  const currentRate = stagedItem?.ratePerKg || 0;
+  const isRecyclable = Boolean(stagedItem?.recyclable);
+  const calculatedReward = isRecyclable
+    ? Math.round(Number(weightKg || 0) * Number(currentRate || 0))
+    : 0;
+
+  const handleScheduleWorkerPickup = () => {
+    if (!stagedItem) return;
+
+    // Schedules pickup with worker (Money will be credited in User Dashboard upon worker pickup)
+    const result = scheduleWastePickup({
+      wasteType: stagedItem.wasteType,
+      material: stagedItem.material,
+      category: stagedItem.category,
+      categoryKey: stagedItem.categoryKey,
+      confidence: stagedItem.confidence,
+      isManual: stagedItem.isManual,
+      weightKg: Number(weightKg),
+      ratePerKg: stagedItem.ratePerKg,
+      rewardAmount: calculatedReward,
+      location: location || 'Flat 402, Green Meadows, Bengaluru',
+      imageUrl: selectedImage
     });
+
+    setScheduledPickupData(result.newPickup);
+    setWorkerPickupCompleted(false);
+    setWorkflowStep(3); // Advance to Stage 3: Worker Pickup Tracking
+
+    setTimeout(() => {
+      workflowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
   };
 
-  // -------------------------------------------------------------
-  // AI DETECTION CORRECTION MODAL HANDLERS
-  // -------------------------------------------------------------
-  const handleOpenCorrection = (detectionItem = activeDetection) => {
-    if (!detectionItem) return;
-    setTargetToCorrect(detectionItem);
-    setCorrectedCategory(detectionItem.category || 'Dry Waste');
-    setCorrectedObjectName(detectionItem.object || '');
-    setIsContaminatedToggle(!!detectionItem.isContaminated);
-    setContaminationReason(detectionItem.isContaminated ? 'Food / Gravy Residue' : 'None');
-    setScrapValueInput(detectionItem.rewardValue || '₹2.50');
-    setCorrectionNotes(detectionItem.correctionNotes || '');
-    setCorrectionModalOpen(true);
+  const handleCompleteWorkerHandoverNow = () => {
+    if (!scheduledPickupData) return;
+    const outcome = completePickup(scheduledPickupData.id);
+    if (outcome) {
+      setWorkerPickupCompleted(true);
+    }
   };
 
-  const handleSubmitCorrection = (e) => {
-    e.preventDefault();
-    if (!targetToCorrect) return;
-
-    correctDetection(
-      targetToCorrect.id,
-      correctedCategory,
-      correctedObjectName || targetToCorrect.object,
-      correctionNotes || `Human verified stream: ${correctedCategory}`
-    );
-
-    setCorrectionModalOpen(false);
+  const handleResetScan = () => {
+    setSelectedImage(null);
+    setFileName('');
+    setAiDetectionResult(null);
+    setSelectedSampleId(null);
+    setManualSelectedCatId('');
+    setScanError(null);
+    setWorkflowStep(0);
+    setStagedItem(null);
+    setScheduledPickupData(null);
+    setWorkerPickupCompleted(false);
+    setWeightKg(0.25);
   };
-
-  // Filtered Events for the Correction Hub
-  const communityCorrectedCount = aiEvents.filter((e) => e.userCorrected).length;
-  const filteredEventsForHub = aiEvents.filter((evt) => {
-    if (hubFilter === 'contaminated') return evt.isContaminated;
-    if (hubFilter === 'unverified') return !evt.userCorrected && evt.confidence < 95;
-    if (hubFilter === 'corrected') return evt.userCorrected;
-    return true;
-  });
 
   return (
     <div className="page-wrapper ai-detection-page">
-      {/* HIDDEN OFFSCREEN CANVAS FOR SHUTTER SNAPSHOTS */}
-      <canvas ref={canvasRef} style={{ display: 'none' }} />
-
-      {/* HEADER SECTION */}
-      <section className="page-header-section">
-        <div className="container text-center">
-          <div className="live-telemetry-badge">
-            <span className="live-pulse-dot"></span>
-            <span>LIVE AI VISION STREAM • REAL-TIME EDGE INFERENCE</span>
-          </div>
-          <h1 className="page-title">Live AI Waste Detection & Vision Classifier</h1>
-          <p className="page-description">
-            Computer vision waste detection and institutional segregation monitoring. Automatically identifies materials at point of disposal, classifies categories, and alerts against contamination with zero user effort.
+      <div className="container">
+        {/* COMPACT CLEAN HEADER */}
+        <div className="detection-header-block text-center">
+          <span className="badge-pill-simple">
+            <Sparkles size={14} /> Smart Waste Detection & Rewards
+          </span>
+          <h1 className="simple-page-title">Submit Waste to Trash2Cash</h1>
+          <p className="simple-page-sub">
+            Identify waste items, verify recyclability, and earn instant cash rewards deposited directly to your wallet.
           </p>
         </div>
-      </section>
 
-      {/* WORKFLOW PIPELINE BANNER */}
-      <section className="detection-flow-banner-section">
-        <div className="container">
-          <div className="detection-workflow-pills">
-            <div className="wf-step">
-              <span className="wf-num">1</span>
-              <span>Input Stream</span>
+        {/* ============================================================== */}
+        {/* TWO WAYS TO SUBMIT WASTE: TAB SELECTOR */}
+        {/* ============================================================== */}
+        <div className="submission-mode-selector">
+          <button
+            onClick={() => {
+              setSubmissionMode('ai');
+              handleResetScan();
+            }}
+            className={`mode-selector-btn ${submissionMode === 'ai' ? 'mode-active' : ''}`}
+          >
+            <span className="mode-btn-icon">🤖</span>
+            <div className="mode-btn-text">
+              <strong>Option 1: AI Detection</strong>
+              <small>Auto-detects material & recyclability via AI Vision</small>
             </div>
-            <span className="wf-arrow">→</span>
-            <div className="wf-step">
-              <span className="wf-num">2</span>
-              <span>Edge AI Detection</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setSubmissionMode('manual');
+              stopCamera();
+              handleResetScan();
+            }}
+            className={`mode-selector-btn ${submissionMode === 'manual' ? 'mode-active' : ''}`}
+          >
+            <span className="mode-btn-icon">✍️</span>
+            <div className="mode-btn-text">
+              <strong>Option 2: Manual Image Upload</strong>
+              <small>Upload photo & select material category directly</small>
             </div>
-            <span className="wf-arrow">→</span>
-            <div className="wf-step">
-              <span className="wf-num">3</span>
-              <span>Stream Classification</span>
-            </div>
-            <span className="wf-arrow">→</span>
-            <div className="wf-step">
-              <span className="wf-num">4</span>
-              <span>Segregation Audit</span>
-            </div>
-            <span className="wf-arrow">→</span>
-            <div className="wf-step">
-              <span className="wf-num">5</span>
-              <span>Instant Correction</span>
-            </div>
-            <span className="wf-arrow">→</span>
-            <div className="wf-step">
-              <span className="wf-num">6</span>
-              <span>Sell / Reward Logged</span>
-            </div>
-          </div>
+          </button>
         </div>
-      </section>
 
-      {/* MAIN VIEWPORT SECTION */}
-      <section className="detection-viewport-section">
-        <div className="container">
-          {/* SOURCE MODE SWITCHER */}
-          <div className="source-mode-switcher-bar">
-            <div className="mode-tabs-group">
+        {/* ============================================================== */}
+        {/* OPTION 1: AI DETECTION SCANNER CARD */}
+        {/* ============================================================== */}
+        {submissionMode === 'ai' && (
+          <div className="scanner-main-card">
+            {/* Source Tabs */}
+            <div className="scanner-tabs-row">
               <button
                 onClick={() => {
-                  setInputMode('camera');
-                  if (!cameraActive) startCameraStream();
+                  setActiveTab('upload');
+                  stopCamera();
                 }}
-                className={`mode-tab-btn ${inputMode === 'camera' ? 'active-mode-tab' : ''}`}
+                className={`scanner-tab-btn ${activeTab === 'upload' ? 'tab-active' : ''}`}
               >
-                <Camera size={18} />
-                <span>Instant Device Camera</span>
-                <span className="tab-pill">Webcam Live</span>
+                <Upload size={17} />
+                <span>Upload Photo</span>
               </button>
 
               <button
                 onClick={() => {
-                  setInputMode('upload');
-                  stopCameraStream();
+                  setActiveTab('camera');
+                  if (!cameraActive) startCamera();
                 }}
-                className={`mode-tab-btn ${inputMode === 'upload' ? 'active-mode-tab' : ''}`}
+                className={`scanner-tab-btn ${activeTab === 'camera' ? 'tab-active' : ''}`}
               >
-                <Upload size={18} />
-                <span>Upload Waste Photo</span>
-                <span className="tab-pill">File / Samples</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setInputMode('cctv');
-                  stopCameraStream();
-                }}
-                className={`mode-tab-btn ${inputMode === 'cctv' ? 'active-mode-tab' : ''}`}
-              >
-                <Video size={18} />
-                <span>Campus CCTV Streams</span>
-                <span className="tab-pill">Fixed Nodes</span>
+                <Camera size={17} />
+                <span>Use Camera</span>
               </button>
             </div>
-          </div>
 
-          <div className="ai-detection-main-grid">
-            {/* Left Column: Camera Viewport / Upload Zone */}
-            <div className="camera-viewport-column">
-              <div className="camera-box-card">
-                {/* HUD Header */}
-                <div className="camera-top-hud">
-                  <div className="cam-title-group">
-                    <span className="cam-recording-indicator">
-                      <span className="cam-red-pulse"></span>
-                      LIVE
-                    </span>
-
-                    {inputMode === 'cctv' ? (
-                      <select
-                        value={selectedFeed}
-                        onChange={(e) => setSelectedFeed(e.target.value)}
-                        className="cam-select-dropdown"
-                      >
-                        {feeds.map((feed) => (
-                          <option key={feed} value={feed}>
-                            {feed}
-                          </option>
-                        ))}
-                      </select>
-                    ) : inputMode === 'camera' ? (
-                      <span className="hud-mode-title">
-                        {facingMode === 'environment' ? 'Rear / Environmental Lens' : 'Front / User Lens'}
-                      </span>
-                    ) : (
-                      <span className="hud-mode-title">Optical File Inspection Mode</span>
-                    )}
-                  </div>
-
-                  <div className="cam-hud-stats">
-                    <span className="hud-badge">60 FPS</span>
-                    <span className="hud-badge">1080p HD</span>
-                    <span className="hud-badge ai-active-tag">AI Vision: Online</span>
-                  </div>
-                </div>
-
-                {/* VIEWPORT BODY */}
-                <div className="camera-canvas">
-                  <div className="canvas-grid-overlay"></div>
-                  <div className="canvas-scanline"></div>
-
-                  {/* 1. WEBCAM STREAM MODE */}
-                  {inputMode === 'camera' && (
-                    <div className="webcam-viewport-inner">
-                      {cameraLoading && (
-                        <div className="camera-loading-overlay">
-                          <RefreshCw size={32} className="animate-spin text-green" />
-                          <p>Initializing camera optical stream...</p>
-                        </div>
-                      )}
-
-                      {cameraError && (
-                        <div className="camera-error-overlay">
-                          <AlertTriangle size={36} className="text-red mb-2" />
-                          <h4>Camera Access Notice</h4>
-                          <p>{cameraError}</p>
-                          <div className="error-action-btns">
-                            <button onClick={() => startCameraStream()} className="btn-primary btn-sm">
-                              Retry Camera
-                            </button>
-                            <button onClick={() => setInputMode('upload')} className="btn-secondary btn-sm">
-                              Switch to Photo Upload
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {!cameraActive && !cameraLoading && !cameraError && (
-                        <div className="camera-standby-overlay">
-                          <Camera size={44} className="text-green mb-3" />
-                          <h3>Instant Device Camera Detection</h3>
-                          <p>Point your laptop or phone camera at any waste item for real-time edge AI classification.</p>
-                          <button onClick={() => startCameraStream()} className="btn-primary mt-3">
-                            <Camera size={18} />
-                            <span>Activate Device Camera</span>
-                          </button>
-                        </div>
-                      )}
-
-                      <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        className={`live-webcam-video ${cameraActive ? 'video-visible' : 'video-hidden'}`}
-                      />
-
-                      {/* Optical Reticle overlay */}
-                      {cameraActive && (
-                        <div className="camera-crosshairs-hud">
-                          <div className="crosshair-reticle"></div>
-                          <div className="hud-target-label">
-                            <Scan size={14} className="text-green" />
-                            <span>TARGET LOCK • READY FOR SNAPSHOT</span>
-                          </div>
-                        </div>
-                      )}
+            {/* VIEWPORT AREA */}
+            <div className="scanner-viewport-box">
+              {activeTab === 'camera' ? (
+                <div className="camera-live-viewport">
+                  {cameraLoading && (
+                    <div className="viewport-overlay-state">
+                      <RefreshCw size={32} className="animate-spin text-green mb-2" />
+                      <p>Starting device camera...</p>
                     </div>
                   )}
 
-                  {/* 2. PHOTO UPLOAD MODE */}
-                  {inputMode === 'upload' && (
-                    <div className="upload-viewport-inner">
-                      {uploadedPreview ? (
-                        <div className="uploaded-preview-container">
-                          <img src={uploadedPreview} alt="Uploaded waste" className="uploaded-preview-img" />
-                        </div>
-                      ) : (
-                        <div
-                          className={`upload-dropzone ${dragActive ? 'dropzone-active' : ''}`}
-                          onDragOver={(e) => {
-                            e.preventDefault();
-                            setDragActive(true);
-                          }}
-                          onDragLeave={() => setDragActive(false)}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            setDragActive(false);
-                            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                              handleFileUpload(e.dataTransfer.files[0]);
-                            }
-                          }}
-                          onClick={() => fileInputRef.current?.click()}
-                        >
-                          <Upload size={40} className="text-green mb-2" />
-                          <h3>Upload Waste Photo for Instant Detection</h3>
-                          <p>Drag & drop photo here or click to browse files</p>
-                          <span className="file-formats-tag">JPG, PNG, WEBP supported • Max 10MB</span>
-                          <button type="button" className="btn-secondary btn-sm mt-3">
-                            Browse Photo File
-                          </button>
-                        </div>
-                      )}
-
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        style={{ display: 'none' }}
-                        onChange={(e) => {
-                          if (e.target.files && e.target.files[0]) {
-                            handleFileUpload(e.target.files[0]);
-                          }
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {/* 3. CCTV STREAM MODE */}
-                  {inputMode === 'cctv' && (
-                    <div className="canvas-scene-art">
-                      <div className="bin-cluster-silhouette">
-                        <div className="bin-prop bin-green">
-                          <span className="bin-lbl">WET</span>
-                        </div>
-                        <div className="bin-prop bin-blue">
-                          <span className="bin-lbl">DRY</span>
-                        </div>
-                        <div className="bin-prop bin-red">
-                          <span className="bin-lbl">SANITARY</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Dynamic Bounding Box Overlay for Active Detection */}
-                  {activeDetection && (
-                    <div
-                      className={`bounding-box ${
-                        activeDetection.isContaminated ? 'bbox-contaminated' : 'bbox-correct'
-                      }`}
-                      style={{
-                        left: `${activeDetection.box?.x || 25}%`,
-                        top: `${activeDetection.box?.y || 25}%`,
-                        width: `${activeDetection.box?.width || 50}%`,
-                        height: `${activeDetection.box?.height || 50}%`
-                      }}
-                    >
-                      <div className="bbox-corner corner-tl"></div>
-                      <div className="bbox-corner corner-tr"></div>
-                      <div className="bbox-corner corner-bl"></div>
-                      <div className="bbox-corner corner-br"></div>
-
-                      <div className="bbox-tag">
-                        <span className="bbox-label">{activeDetection.object}</span>
-                        <span className="bbox-conf">{activeDetection.confidence}%</span>
-                      </div>
-
-                      {activeDetection.userCorrected ? (
-                        <div className="bbox-clean-pill bbox-human-verified">
-                          <CheckCircle2 size={12} /> HUMAN VERIFIED
-                        </div>
-                      ) : activeDetection.isContaminated ? (
-                        <div className="bbox-warning-pill">
-                          <AlertTriangle size={12} /> CONTAMINATION
-                        </div>
-                      ) : (
-                        <div className="bbox-clean-pill">
-                          <CheckCircle2 size={12} /> VERIFIED {activeDetection.category}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Bottom Viewport HUD Info */}
-                  <div className="canvas-bottom-overlay">
-                    <div className="cam-location-label">
-                      <MapPin size={14} className="text-green" />
-                      <span>{activeDetection?.location || selectedFeed}</span>
-                    </div>
-                    <div className="cam-timestamp">
-                      <Clock size={14} />
-                      <span>{activeDetection?.timestamp || '10:42 AM'} • Edge Live</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* VIEWPORT CONTROLS BAR */}
-                <div className="camera-controls-bar">
-                  {inputMode === 'camera' ? (
-                    <div className="camera-shutter-row">
+                  {cameraError && (
+                    <div className="viewport-overlay-state">
+                      <AlertTriangle size={36} className="text-red mb-2" />
+                      <p>{cameraError}</p>
                       <button
-                        onClick={handleSnapAndDetect}
-                        disabled={!cameraActive}
-                        className="btn-primary btn-snap-shutter"
-                        title="Capture frame and run instant AI detection"
+                        onClick={() => setActiveTab('upload')}
+                        className="btn-secondary btn-sm mt-3"
                       >
-                        <Camera size={20} />
-                        <span>Snap & Detect Waste</span>
+                        Switch to Upload Tab
                       </button>
-
-                      <div className="secondary-cam-controls">
-                        <button
-                          onClick={switchCameraFacingMode}
-                          className="btn-secondary btn-icon-only"
-                          title="Flip Camera (Front/Back)"
-                        >
-                          <RotateCcw size={17} />
-                        </button>
-
-                        {cameraActive ? (
-                          <button onClick={stopCameraStream} className="btn-secondary btn-sm">
-                            <Pause size={16} />
-                            <span>Stop Camera</span>
-                          </button>
-                        ) : (
-                          <button onClick={() => startCameraStream()} className="btn-secondary btn-sm">
-                            <Play size={16} />
-                            <span>Start Camera</span>
-                          </button>
-                        )}
-                      </div>
                     </div>
-                  ) : inputMode === 'upload' ? (
-                    <div className="upload-controls-row">
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="btn-primary btn-sm"
-                      >
-                        <Upload size={16} />
-                        <span>Upload Another Photo</span>
+                  )}
+
+                  {!cameraActive && !cameraLoading && !cameraError && (
+                    <div className="viewport-overlay-state">
+                      <Camera size={44} className="text-muted mb-2" />
+                      <p>Camera is currently inactive</p>
+                      <button onClick={() => startCamera()} className="btn-primary btn-sm mt-2">
+                        Start Camera
                       </button>
-                      <span className="upload-status-text">
-                        Instant optical inference on selected waste image
-                      </span>
+                    </div>
+                  )}
+
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className={`camera-video-elem ${cameraActive ? 'elem-visible' : 'elem-hidden'}`}
+                  />
+
+                  {cameraActive && (
+                    <div className="camera-overlay-controls">
+                      <button
+                        onClick={switchCameraFacing}
+                        className="btn-cam-switch"
+                        title="Switch Camera (Front/Rear)"
+                      >
+                        <RotateCcw size={16} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="upload-drop-viewport">
+                  {selectedImage ? (
+                    <div className="image-preview-wrapper">
+                      <img src={selectedImage} alt="Selected waste" className="preview-image" />
+                      <button
+                        onClick={handleResetScan}
+                        className="btn-remove-image"
+                        title="Remove image"
+                      >
+                        ✕ Change Photo
+                      </button>
                     </div>
                   ) : (
-                    <div className="cctv-controls-row">
-                      <div className="stream-action-btns">
-                        {isDemoRunning ? (
-                          <button onClick={stopDemo} className="btn-secondary btn-sm">
-                            <Pause size={16} />
-                            <span>Pause Telemetry Feed</span>
-                          </button>
-                        ) : (
-                          <button onClick={startDemo} className="btn-primary btn-sm">
-                            <Play size={16} />
-                            <span>Resume Telemetry Feed</span>
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="camera-status-indicator">
-                        <span className="status-label">Active Feed:</span>
-                        <strong>{isDemoRunning ? 'Ingesting Real-time Edge Frames' : 'Standby / Click to Resume'}</strong>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* QUICK SAMPLE TEST CHIPS (Always visible for zero-friction instant detection) */}
-              <div className="sample-chips-wrapper">
-                <div className="sample-chips-header">
-                  <span className="chips-title">
-                    <Sparkles size={15} className="text-green" />
-                    <strong>Instant Waste Presets (1-Click Test):</strong>
-                  </span>
-                  <span className="chips-sub">Click any item to simulate instant edge detection</span>
-                </div>
-                <div className="sample-chips-grid">
-                  {SAMPLE_PRESETS.map((preset) => (
-                    <button
-                      key={preset.id}
-                      onClick={() => handleSelectPreset(preset)}
-                      className={`sample-preset-chip ${selectedPresetId === preset.id ? 'preset-chip-active' : ''}`}
+                    <div
+                      className="upload-drop-target"
+                      onClick={() => fileInputRef.current?.click()}
                     >
-                      <span className="preset-chip-icon">{preset.icon}</span>
-                      <div className="preset-chip-info">
-                        <strong className="preset-name">{preset.name}</strong>
-                        <span className="preset-cat">{preset.category}</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* ACTIVE TARGET DOSSIER WITH CORRECTION CTA */}
-              {activeDetection && (
-                <div className={`active-target-dossier ${activeDetection.isContaminated ? 'dossier-alert' : ''}`}>
-                  <div className="target-dossier-header">
-                    <div className="dossier-title-group">
-                      <Scan size={22} className={activeDetection.isContaminated ? 'text-red' : 'text-green'} />
-                      <div>
-                        <h3>Target Recognition: {activeDetection.object}</h3>
-                        <p className="dossier-subtext">
-                          Detected at {activeDetection.location} • Confidence: <strong>{activeDetection.confidence}%</strong>
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="dossier-badges-wrap">
-                      {activeDetection.userCorrected ? (
-                        <span className="target-status-badge status-corrected">
-                          <CheckCircle2 size={13} /> Human Verified & Corrected
-                        </span>
-                      ) : activeDetection.isContaminated ? (
-                        <span className="target-status-badge status-bad">
-                          ⚠️ Contamination Detected
-                        </span>
-                      ) : (
-                        <span className="target-status-badge status-good">
-                          ✓ Correct Segregation
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="target-dossier-grid">
-                    <div className="dossier-metric">
-                      <span className="d-label">Detected Stream</span>
-                      <strong className="d-val">{activeDetection.category}</strong>
-                    </div>
-                    <div className="dossier-metric">
-                      <span className="d-label">Disposal Target Bin</span>
-                      <strong className="d-val">{activeDetection.binUsed}</strong>
-                    </div>
-                    <div className="dossier-metric">
-                      <span className="d-label">Verification Result</span>
-                      <strong className="d-val font-semibold">
-                        {activeDetection.userCorrected
-                          ? '100% Verified by Reviewer'
-                          : activeDetection.isContaminated
-                          ? 'Contaminated Stream'
-                          : 'Clean Recyclable'}
-                      </strong>
-                    </div>
-                    <div className="dossier-metric">
-                      <span className="d-label">Recycler Value / Credit</span>
-                      <strong className="d-val text-green">{activeDetection.rewardValue || 'Logged'}</strong>
-                    </div>
-                  </div>
-
-                  <p className="target-analysis-desc">{activeDetection.details}</p>
-
-                  {activeDetection.isContaminated && activeDetection.recommendation && (
-                    <div className="dossier-recommendation-box">
-                      <AlertTriangle size={16} className="text-red flex-shrink-0" />
-                      <div>
-                        <strong>AI Recommended Operational Action:</strong>
-                        <p>{activeDetection.recommendation}</p>
-                      </div>
+                      <Upload size={40} className="text-green mb-2" />
+                      <h3>Drop waste image here, or browse</h3>
+                      <p>Supports JPG, PNG, WEBP</p>
+                      <button type="button" className="btn-secondary btn-sm mt-3">
+                        Choose Image File
+                      </button>
                     </div>
                   )}
 
-                  {/* ACTION BAR: CORRECTION TOOL & SELL WASTE */}
-                  <div className="dossier-action-bar">
-                    <button
-                      onClick={() => handleOpenCorrection(activeDetection)}
-                      className="btn-secondary btn-correct-action"
-                    >
-                      <Edit3 size={16} className="text-green" />
-                      <span>{activeDetection.userCorrected ? 'Edit Correction Again' : '✏️ Correct AI Detection'}</span>
-                    </button>
-
-                    {activeDetection.category === 'Dry Waste' && !activeDetection.isContaminated && (
-                      <Link to="/sell-waste" className="btn-primary btn-sell-action">
-                        <DollarSign size={16} />
-                        <span>Sell This Scrap @ Best Rates</span>
-                        <ArrowRight size={15} />
-                      </Link>
-                    )}
-                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={handleFileChange}
+                  />
                 </div>
               )}
             </div>
 
-            {/* Right Column: Live Detection Event Feed */}
-            <div className="detection-events-column">
-              <div className="detection-feed-card">
-                <div className="feed-card-header">
-                  <div>
-                    <h3>Realtime Detection Events</h3>
-                    <p className="text-muted text-xs">Active IoT & Camera sensor event stream</p>
-                  </div>
-                  <span className="live-events-pill">
-                    {aiEvents.length} Verified Events Logged
-                  </span>
-                </div>
-
-                <div className="detection-cards-scroll">
-                  {aiEvents.map((evt, idx) => (
-                    <DetectionCard
-                      key={evt.id}
-                      event={evt}
-                      isActive={activeDetectionIndex === idx}
-                      onSelect={() => selectDetection(idx)}
-                    />
-                  ))}
-                </div>
+            {/* ERROR ALERT IF NO IMAGE */}
+            {scanError && (
+              <div className="scan-error-alert">
+                <AlertTriangle size={16} className="text-red" />
+                <span>{scanError}</span>
               </div>
-            </div>
-          </div>
-        </div>
-      </section>
+            )}
 
-      {/* MORE CORRECTION: CAMPUS AI MODEL CORRECTION & VERIFICATION HUB */}
-      <section className="model-correction-hub-section">
-        <div className="container">
-          <div className="hub-header-card">
-            <div className="hub-title-group">
-              <div className="hub-icon-wrap">
-                <Sliders size={26} className="text-green" />
-              </div>
-              <div>
-                <span className="sub-badge">COMMUNITY HUMAN-IN-THE-LOOP FEEDBACK</span>
-                <h2 className="hub-title">Campus AI Model Correction & Verification Hub</h2>
-                <p className="hub-subtitle">
-                  Help continuously fine-tune our institutional vision model. Inspect recent detections, correct misclassifications, and earn Eco-Steward badges.
-                </p>
-              </div>
-            </div>
-
-            <div className="hub-metrics-pill">
-              <div className="hub-metric-item">
-                <span className="hm-val text-green">{communityCorrectedCount}</span>
-                <span className="hm-lbl">Corrections Submitted</span>
-              </div>
-              <div className="hub-metric-divider"></div>
-              <div className="hub-metric-item">
-                <span className="hm-val text-blue">+{ (communityCorrectedCount * 0.2).toFixed(1) }%</span>
-                <span className="hm-lbl">Accuracy Fine-Tuned</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Filter Bar */}
-          <div className="hub-filter-bar">
-            <span className="filter-label">Filter Detection Queue:</span>
-            <div className="filter-buttons-row">
-              <button
-                onClick={() => setHubFilter('all')}
-                className={`filter-btn ${hubFilter === 'all' ? 'filter-active' : ''}`}
-              >
-                All Events ({aiEvents.length})
-              </button>
-              <button
-                onClick={() => setHubFilter('unverified')}
-                className={`filter-btn ${hubFilter === 'unverified' ? 'filter-active' : ''}`}
-              >
-                Needs Review / Low Confidence
-              </button>
-              <button
-                onClick={() => setHubFilter('contaminated')}
-                className={`filter-btn ${hubFilter === 'contaminated' ? 'filter-active' : ''}`}
-              >
-                Contamination Anomaly Flags
-              </button>
-              <button
-                onClick={() => setHubFilter('corrected')}
-                className={`filter-btn ${hubFilter === 'corrected' ? 'filter-active' : ''}`}
-              >
-                Human Verified ({communityCorrectedCount})
-              </button>
-            </div>
-          </div>
-
-          {/* Correction Queue Grid */}
-          <div className="correction-queue-grid">
-            {filteredEventsForHub.map((item) => (
-              <div
-                key={item.id}
-                className={`queue-item-card ${item.userCorrected ? 'card-corrected' : item.isContaminated ? 'card-alert' : ''}`}
-              >
-                <div className="queue-card-top">
-                  <div>
-                    <strong className="queue-item-name">{item.object}</strong>
-                    <span className="queue-item-meta">
-                      {item.location} • {item.timestamp}
-                    </span>
-                  </div>
-                  <span className={`queue-badge ${item.isContaminated ? 'badge-bad' : 'badge-good'}`}>
-                    {item.category}
-                  </span>
-                </div>
-
-                <p className="queue-item-desc">{item.details}</p>
-
-                <div className="queue-card-bottom">
-                  <div className="queue-confidence">
-                    <span>Confidence: <strong>{item.confidence}%</strong></span>
-                  </div>
-
-                  <button
-                    onClick={() => handleOpenCorrection(item)}
-                    className="btn-secondary btn-xs btn-review-correct"
-                  >
-                    <Edit3 size={13} />
-                    <span>{item.userCorrected ? 'Verified ✓' : 'Review & Correct'}</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* 4-STREAM TAXONOMY REFERENCE */}
-      <section className="classification-rules-section">
-        <div className="container">
-          <div className="section-header text-center">
-            <span className="sub-badge">AI CLASSIFICATION TAXONOMY</span>
-            <h2 className="section-title">Institutional Waste Categorization</h2>
-            <p className="section-subtitle">
-              Every item detected is mapped to one of 4 municipal segregation streams with zero manual entry required from students or staff.
-            </p>
-          </div>
-
-          <div className="classification-grid-4">
-            {classifications.map((cat) => (
-              <div key={cat.id} className="classification-card">
-                <div className="class-header" style={{ borderTop: `4px solid ${cat.color}` }}>
-                  <span className="class-bin-tag" style={{ color: cat.color }}>
-                    {cat.binColor}
-                  </span>
-                  <h3 className="class-title">{cat.name}</h3>
-                </div>
-
-                <div className="class-body">
-                  <div className="class-field">
-                    <span className="f-title">Common Examples:</span>
-                    <p className="f-desc">{cat.examples}</p>
-                  </div>
-                  <div className="class-field">
-                    <span className="f-title">Campus Handling Route:</span>
-                    <p className="f-desc text-muted">{cat.handling}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ============================================================== */}
-      {/* AI DETECTION CORRECTION MODAL */}
-      {/* ============================================================== */}
-      {correctionModalOpen && targetToCorrect && (
-        <div className="modal-overlay" onClick={() => setCorrectionModalOpen(false)}>
-          <div className="modal-content correction-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="modal-title-wrap">
-                <Edit3 size={22} className="text-green" />
-                <div>
-                  <h3>Correct AI Detection & Train Model</h3>
-                  <p className="text-muted text-xs">Event ID: {targetToCorrect.id} • {targetToCorrect.location}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setCorrectionModalOpen(false)}
-                className="modal-close-btn"
-                title="Close modal"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmitCorrection} className="modal-body correction-form">
-              {/* Target Preview Box */}
-              <div className="correction-current-banner">
-                <span className="text-xs text-muted font-bold">CURRENT DETECTION:</span>
-                <div className="current-detected-row">
-                  <span className="detected-item-pill">
-                    📦 <strong>{targetToCorrect.object}</strong>
-                  </span>
-                  <span className="detected-stream-pill">
-                    {targetToCorrect.category} ({targetToCorrect.confidence}%)
-                  </span>
-                  {targetToCorrect.isContaminated && (
-                    <span className="detected-alert-pill">⚠️ Contaminated</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Step 1: Select Correct Stream */}
-              <div className="form-group">
-                <label className="form-label font-bold">
-                  1. Select Correct Waste Category Stream:
-                </label>
-                <div className="stream-selector-grid">
-                  {[
-                    { name: 'Dry Waste', label: 'Dry Recyclable', bin: 'Blue Bin (Dry)', color: '#2563eb', desc: 'Paper, Clean Plastics, Metals, Cardboard' },
-                    { name: 'Wet Waste', label: 'Wet Organic', bin: 'Green Bin (Wet)', color: '#16a34a', desc: 'Food Scraps, Fruit Peels, Biodegradable' },
-                    { name: 'Sanitary Waste', label: 'Sanitary', bin: 'Red Bin (Sanitary)', color: '#dc2626', desc: 'Medical, Diapers, Contaminated Tissues' },
-                    { name: 'Special / E-Waste', label: 'Special / E-Waste', bin: 'Orange Bin (Special)', color: '#ea580c', desc: 'Batteries, Cables, Hazardous Chemicals' }
-                  ].map((stream) => (
-                    <div
-                      key={stream.name}
-                      onClick={() => setCorrectedCategory(stream.name)}
-                      className={`stream-choice-card ${correctedCategory === stream.name ? 'stream-selected' : ''}`}
-                      style={{
-                        borderColor: correctedCategory === stream.name ? stream.color : 'var(--border-warm)'
-                      }}
-                    >
-                      <div className="stream-choice-top">
-                        <span className="stream-dot" style={{ backgroundColor: stream.color }}></span>
-                        <strong>{stream.label}</strong>
-                        {correctedCategory === stream.name && <Check size={16} style={{ color: stream.color }} />}
-                      </div>
-                      <span className="stream-bin-sub">{stream.bin}</span>
-                      <p className="stream-desc-text">{stream.desc}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Step 2: Accurate Item Name */}
-              <div className="form-group">
-                <label className="form-label font-bold">
-                  2. Accurate Item Name / Classification:
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={correctedObjectName}
-                  onChange={(e) => setCorrectedObjectName(e.target.value)}
-                  className="form-input"
-                  placeholder="e.g. PET Mineral Water Bottle"
-                />
-
-                {/* Quick Name Suggestions */}
-                <div className="quick-suggestions-row">
-                  <span className="text-xs text-muted">Quick Tags:</span>
-                  {[
-                    'PET Plastic Bottle',
-                    'Corrugated Cardboard',
-                    'Aluminium Can',
-                    'Organic Food Scraps',
-                    'Used Sanitary Napkin',
-                    'Lithium-Ion Battery',
-                    'Milk Pouch (LDPE)'
-                  ].map((tag) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => setCorrectedObjectName(tag)}
-                      className="quick-tag-btn"
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Step 3: Contamination Check */}
-              <div className="form-group">
-                <label className="form-label font-bold">
-                  3. Contamination Audit:
-                </label>
-                <div className="contamination-toggle-group">
-                  <button
-                    type="button"
-                    onClick={() => setIsContaminatedToggle(false)}
-                    className={`toggle-option ${!isContaminatedToggle ? 'toggle-active-good' : ''}`}
-                  >
-                    <CheckCircle2 size={16} />
-                    <span>Clean & Segregated</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsContaminatedToggle(true)}
-                    className={`toggle-option ${isContaminatedToggle ? 'toggle-active-bad' : ''}`}
-                  >
-                    <AlertTriangle size={16} />
-                    <span>Contaminated / Soiled</span>
-                  </button>
-                </div>
-
-                {isContaminatedToggle && (
-                  <div className="contamination-reason-box mt-2">
-                    <label className="text-xs font-semibold text-muted">Contamination Type:</label>
-                    <select
-                      value={contaminationReason}
-                      onChange={(e) => setContaminationReason(e.target.value)}
-                      className="form-input"
-                    >
-                      <option value="Food & Gravy Residue">Food & Gravy Residue</option>
-                      <option value="Liquid Spillage / Moisture">Liquid Spillage / Moisture</option>
-                      <option value="Mixed Multi-layer Foil">Mixed Multi-layer Foil</option>
-                      <option value="Grease / Oil Stains">Grease / Oil Stains</option>
-                      <option value="Medical / Hazardous Contact">Medical / Hazardous Contact</option>
-                    </select>
-                  </div>
-                )}
-              </div>
-
-              {/* Step 4: ML Engineer Notes */}
-              <div className="form-group">
-                <label className="form-label font-bold">
-                  4. ML Feedback & Edge Model Notes (Optional):
-                </label>
-                <textarea
-                  rows={2}
-                  value={correctionNotes}
-                  onChange={(e) => setCorrectionNotes(e.target.value)}
-                  className="form-textarea"
-                  placeholder="e.g. Item crushed and shaded by shadow; label PET-1 clearly visible."
-                ></textarea>
-              </div>
-
-              {/* Submit Buttons */}
-              <div className="modal-footer">
+            {/* PRIMARY SCAN BUTTON */}
+            <div className="scanner-action-bar">
+              {activeTab === 'camera' && cameraActive && !selectedImage && (
                 <button
-                  type="button"
-                  onClick={() => setCorrectionModalOpen(false)}
+                  onClick={() => {
+                    captureFrameFromCamera();
+                  }}
                   className="btn-secondary"
                 >
-                  Cancel
+                  <Camera size={18} />
+                  <span>Capture Frame</span>
                 </button>
-                <button type="submit" className="btn-primary">
-                  <CheckCircle2 size={16} />
-                  <span>Save Correction & Retrain AI (+0.2% Accuracy)</span>
+              )}
+
+              <button
+                onClick={handleRunAiScan}
+                disabled={isAnalyzing || (!selectedImage && !cameraActive)}
+                className="btn-primary btn-scan-waste"
+              >
+                {isAnalyzing ? (
+                  <>
+                    <RefreshCw size={18} className="animate-spin" />
+                    <span>Analyzing waste with AI...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={18} />
+                    <span>Scan Waste with AI</span>
+                  </>
+                )}
+              </button>
+
+              {selectedImage && (
+                <button onClick={handleResetScan} className="btn-secondary">
+                  Reset
                 </button>
+              )}
+            </div>
+
+            {/* 1-CLICK DEMO TEST CHIPS */}
+            <div className="quick-test-strip">
+              <span className="quick-test-label">Quick Test Presets:</span>
+              <div className="quick-test-chips">
+                {SAMPLE_TEST_ITEMS.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => handleSelectSample(item)}
+                    className={`test-chip-btn ${selectedSampleId === item.id ? 'chip-active' : ''}`}
+                  >
+                    <span>{item.icon}</span>
+                    <span>{item.label}</span>
+                  </button>
+                ))}
               </div>
-            </form>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* ============================================================== */}
+        {/* OPTION 2: MANUAL IMAGE UPLOAD WORKFLOW */}
+        {/* ============================================================== */}
+        {submissionMode === 'manual' && (
+          <div className="manual-upload-card">
+            <div className="manual-upload-header">
+              <div className="manual-step-badge">Manual Submission Flow</div>
+              <h2>Upload Waste Image & Select Material Category</h2>
+              <p>
+                Take or upload a photo of your waste item, then pick the matching category below.
+              </p>
+            </div>
+
+            {/* Dropzone / Upload area */}
+            <div className="manual-image-drop-area">
+              {selectedImage ? (
+                <div className="manual-preview-container">
+                  <img src={selectedImage} alt="Uploaded waste" className="manual-preview-img" />
+                  <div className="manual-preview-actions">
+                    <button
+                      onClick={() => manualFileInputRef.current?.click()}
+                      className="btn-secondary btn-sm"
+                    >
+                      <Upload size={14} /> Change Photo
+                    </button>
+                    <button onClick={handleResetScan} className="btn-secondary btn-sm text-red">
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className="manual-drop-target"
+                  onClick={() => manualFileInputRef.current?.click()}
+                >
+                  <Upload size={44} className="text-green mb-2" />
+                  <h3>Upload photo of your recyclable or waste</h3>
+                  <p>Click to browse from your device (JPG, PNG, WEBP)</p>
+                  <button type="button" className="btn-primary btn-sm mt-3">
+                    Select Photo
+                  </button>
+                </div>
+              )}
+
+              <input
+                ref={manualFileInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={handleFileChange}
+              />
+            </div>
+
+            {/* 7 Canonical Waste Categories Selector */}
+            <div className="manual-category-section">
+              <div className="category-section-title">
+                <span className="step-num-bubble">2</span>
+                <div>
+                  <h3>Select Waste Category:</h3>
+                  <p>Choose the material that matches your uploaded waste item.</p>
+                </div>
+              </div>
+
+              <div className="manual-category-grid">
+                {MANUAL_CATEGORIES.map((cat) => {
+                  const isSelected = manualSelectedCatId === cat.id;
+                  return (
+                    <div
+                      key={cat.id}
+                      onClick={() => handleSelectManualCategory(cat)}
+                      className={`cat-card ${isSelected ? 'cat-card-selected' : ''}`}
+                    >
+                      <div className="cat-card-top">
+                        <span className="cat-icon">{cat.icon}</span>
+                        <div className="cat-rate-tag">
+                          {cat.rate > 0 ? `₹${cat.rate}/kg` : 'Free / Eco'}
+                        </div>
+                      </div>
+                      <h4 className="cat-title">{cat.label}</h4>
+                      <p className="cat-sub">{cat.subtext}</p>
+                      <div className="cat-badge-row">
+                        {cat.recyclable ? (
+                          <span className="badge-tag-recyclable">✓ Cash Eligible</span>
+                        ) : (
+                          <span className="badge-tag-compost">Compostable</span>
+                        )}
+                        <input
+                          type="radio"
+                          name="wasteCategory"
+                          checked={isSelected}
+                          onChange={() => {}}
+                          className="cat-radio"
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* THE 3-STEP TRASH2CASH PROCESS (ONLY APPEARS AFTER IMAGE READY) */}
+        {/* ============================================================== */}
+        {stagedItem && workflowStep > 0 && (
+          <div ref={workflowRef} className="trash2cash-process-container">
+            {/* Visual Process Stepper */}
+            <div className="process-stepper-bar">
+              <div className={`stepper-step ${workflowStep >= 1 ? 'step-active' : ''} ${workflowStep > 1 ? 'step-done' : ''}`}>
+                <div className="stepper-circle">{workflowStep > 1 ? '✓' : '1'}</div>
+                <div className="stepper-meta">
+                  <span className="stepper-title">Capture & Classify</span>
+                  <small className="stepper-status">
+                    {workflowStep === 1 ? 'Current' : 'Verified'}
+                  </small>
+                </div>
+              </div>
+
+              <div className={`stepper-connector ${workflowStep >= 2 ? 'conn-active' : ''}`}></div>
+
+              <div className={`stepper-step ${workflowStep >= 2 ? 'step-active' : ''} ${workflowStep > 2 ? 'step-done' : ''}`}>
+                <div className="stepper-circle">{workflowStep > 2 ? '✓' : '2'}</div>
+                <div className="stepper-meta">
+                  <span className="stepper-title">Verify & Reward</span>
+                  <small className="stepper-status">
+                    {workflowStep === 2 ? 'Current' : workflowStep > 2 ? 'Calculated' : 'Pending'}
+                  </small>
+                </div>
+              </div>
+
+              <div className={`stepper-connector ${workflowStep >= 3 ? 'conn-active' : ''}`}></div>
+
+              <div className={`stepper-step ${workflowStep === 3 ? 'step-active' : ''}`}>
+                <div className="stepper-circle">3</div>
+                <div className="stepper-meta">
+                  <span className="stepper-title">Engage & Improve</span>
+                  <small className="stepper-status">
+                    {workflowStep === 3 ? 'Rewarded 🎉' : 'Pending'}
+                  </small>
+                </div>
+              </div>
+            </div>
+
+            {/* ---------------------------------------------------------- */}
+            {/* STAGE 1: CAPTURE & CLASSIFY */}
+            {/* ---------------------------------------------------------- */}
+            {workflowStep === 1 && (
+              <div className="workflow-card stage-card-1 animate-fade-in">
+                <div className="stage-header-row">
+                  <div className="stage-title-wrap">
+                    <span className="stage-tag">Stage 1 of 3</span>
+                    <h2 className="stage-heading">Capture & Classify</h2>
+                    <p className="stage-subheading">
+                      Review the detected item details and material recyclability.
+                    </p>
+                  </div>
+                  <div className="stage-source-badge">
+                    {stagedItem.isManual ? 'Manual Selection' : 'AI Vision Classifier'}
+                  </div>
+                </div>
+
+                <div className="stage-1-details-grid">
+                  {selectedImage && (
+                    <div className="stage-1-image-box">
+                      <img src={selectedImage} alt="Classified item" className="stage-item-preview" />
+                    </div>
+                  )}
+
+                  <div className="stage-1-info-box">
+                    <div className="info-badge-row">
+                      <span className="category-pill-lg">{stagedItem.category}</span>
+                      {stagedItem.recyclable ? (
+                        <span className="stamp-yes">
+                          <CheckCircle2 size={16} /> Recyclable (Cash Payout)
+                        </span>
+                      ) : (
+                        <span className="stamp-no">
+                          <XCircle size={16} /> Non-Recyclable / Compost
+                        </span>
+                      )}
+                    </div>
+
+                    <h3 className="detected-item-name">{stagedItem.wasteType}</h3>
+
+                    <div className="classified-specs-list">
+                      <div className="spec-row">
+                        <span className="spec-label">Material:</span>
+                        <strong className="spec-value">{stagedItem.material}</strong>
+                      </div>
+                      <div className="spec-row">
+                        <span className="spec-label">Confidence:</span>
+                        <strong className="spec-value text-blue">
+                          {typeof stagedItem.confidence === 'number'
+                            ? `${stagedItem.confidence}%`
+                            : stagedItem.confidence}
+                        </strong>
+                      </div>
+                      <div className="spec-row">
+                        <span className="spec-label">Base Rate:</span>
+                        <strong className="spec-value text-green">
+                          {stagedItem.ratePerKg > 0 ? `₹${stagedItem.ratePerKg}/kg` : 'Eco Credits'}
+                        </strong>
+                      </div>
+                      <div className="spec-row">
+                        <span className="spec-label">Typical Unit Weight:</span>
+                        <strong className="spec-value">{stagedItem.defaultWeight} kg</strong>
+                      </div>
+                    </div>
+
+                    <div className="stage-action-buttons">
+                      <button onClick={handleConfirmWaste} className="btn-primary btn-lg">
+                        <span>Confirm Waste</span>
+                        <ArrowRight size={18} />
+                      </button>
+                      <button onClick={handleResetScan} className="btn-secondary">
+                        <RotateCcw size={16} />
+                        <span>Scan Again / Retake</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ---------------------------------------------------------- */}
+            {/* STAGE 2: VERIFY & SELL WASTE VIA WORKER PICKUP */}
+            {/* ---------------------------------------------------------- */}
+            {workflowStep === 2 && (
+              <div className="workflow-card stage-card-2 animate-fade-in">
+                <div className="stage-header-row">
+                  <div className="stage-title-wrap">
+                    <span className="stage-tag">Stage 2 of 3</span>
+                    <h2 className="stage-heading">Verify & Sell Waste via Worker Pickup</h2>
+                    <p className="stage-subheading">
+                      Confirm weight and collection address to sell your waste. Money is credited to your User Dashboard after pickup by worker.
+                    </p>
+                  </div>
+                  <button onClick={() => setWorkflowStep(1)} className="btn-secondary btn-sm">
+                    <ArrowLeft size={14} /> Back to Classify
+                  </button>
+                </div>
+
+                <div className="stage-2-form-grid">
+                  {/* Left Column: Inputs */}
+                  <div className="stage-2-inputs-col">
+                    <div className="form-group">
+                      <label className="form-label">
+                        <Scale size={16} className="text-green" />
+                        <span>Confirm Weight (kg)</span>
+                      </label>
+                      <div className="weight-input-wrapper">
+                        <input
+                          type="number"
+                          step="0.05"
+                          min="0.05"
+                          max="100"
+                          value={weightKg}
+                          onChange={(e) => setWeightKg(Math.max(0.01, parseFloat(e.target.value) || 0))}
+                          className="form-input weight-number-input"
+                        />
+                        <span className="weight-unit-badge">KG</span>
+                      </div>
+                      <div className="quick-weight-chips">
+                        {[0.25, 0.5, 1.0, 2.5, 5.0].map((w) => (
+                          <button
+                            key={w}
+                            type="button"
+                            onClick={() => setWeightKg(w)}
+                            className={`weight-chip ${Number(weightKg) === w ? 'chip-selected' : ''}`}
+                          >
+                            {w} kg
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="form-group mt-3">
+                      <label className="form-label">
+                        <MapPin size={16} className="text-green" />
+                        <span>Doorstep Collection Address</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={location}
+                        onChange={(e) => setLocation(e.target.value)}
+                        placeholder="e.g. Flat 402, Green Meadows, Bengaluru"
+                        className="form-input"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Right Column: Live Deterministic Math Calculation & Worker Policy */}
+                  <div className="stage-2-math-col">
+                    <div className="calculation-box">
+                      <div className="calc-header">
+                        <DollarSign size={18} className="text-green" />
+                        <span>Deterministic Scrap Valuation</span>
+                      </div>
+
+                      <div className="calc-formula-display">
+                        <div className="formula-tag">Weight (kg) × Material Rate (₹/kg) = Payout</div>
+                        <div className="formula-numbers">
+                          <span className="f-num">{weightKg} kg</span>
+                          <span className="f-sym">×</span>
+                          <span className="f-num">₹{stagedItem.ratePerKg}/kg</span>
+                          <span className="f-sym">=</span>
+                          <span className="f-res">₹{calculatedReward}</span>
+                        </div>
+                      </div>
+
+                      <div className="calc-summary-rows">
+                        <div className="summary-row">
+                          <span>Material Type:</span>
+                          <strong>{stagedItem.material}</strong>
+                        </div>
+                        <div className="summary-row">
+                          <span>Current Dashboard Wallet:</span>
+                          <strong>₹{walletBalance}</strong>
+                        </div>
+                        <div className="summary-row highlight-row">
+                          <span>Projected Wallet After Worker Pickup:</span>
+                          <strong className="text-green">₹{walletBalance + calculatedReward}</strong>
+                        </div>
+                      </div>
+
+                      {/* Worker Collection Notice */}
+                      <div className="worker-pickup-note">
+                        <Truck size={16} className="text-green flex-shrink-0" />
+                        <span>
+                          Doorstep worker <strong>Ramesh Kumar</strong> will collect and weigh this waste. ₹{calculatedReward} will be credited to your <strong>User Dashboard Wallet</strong> upon pickup.
+                        </span>
+                      </div>
+
+                      <button
+                        onClick={handleScheduleWorkerPickup}
+                        className="btn-primary btn-lg btn-reward-submit"
+                      >
+                        <Truck size={18} />
+                        <span>Sell Waste & Request Worker Pickup (₹{calculatedReward})</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ---------------------------------------------------------- */}
+            {/* STAGE 3: DOORSTEP WORKER PICKUP SCHEDULED */}
+            {/* ---------------------------------------------------------- */}
+            {workflowStep === 3 && scheduledPickupData && (
+              <div className="workflow-card stage-card-3 animate-bounce-in">
+                <div className="reward-celebration-banner">
+                  <div className="celebrate-icon-wrap">🚚</div>
+                  <h2 className="celebrate-title">Doorstep Worker Pickup Scheduled!</h2>
+                  <p className="celebrate-sub">
+                    Your waste has been registered for sale. Doorstep recycling partner <strong>Ramesh Kumar</strong> is assigned to collect and verify your waste.
+                  </p>
+                </div>
+
+                <div className="reward-payout-spotlight">
+                  <div className="payout-amount-box">
+                    <span className="payout-label">Payout to be Credited</span>
+                    <h1 className="payout-value">₹{scheduledPickupData.estimatedEarnings}</h1>
+                    <span className={workerPickupCompleted ? "payout-badge" : "payout-badge-pending"}>
+                      {workerPickupCompleted ? "✓ Credited to Dashboard Wallet ⚡" : "⏳ Credited on Worker Collection"}
+                    </span>
+                  </div>
+
+                  <div className="wallet-transition-box">
+                    <div className="worker-assignment-card">
+                      <div className="worker-avatar-row">
+                        <div className="worker-avatar-icon">👷‍♂️</div>
+                        <div>
+                          <strong>{scheduledPickupData.agentName}</strong>
+                          <p className="text-xs text-muted">Recycle Partner • {scheduledPickupData.agentPhone}</p>
+                        </div>
+                      </div>
+                      <div className="worker-pickup-schedule-time">
+                        <Clock size={14} className="text-green" />
+                        <span>Pickup Slot: <strong>{scheduledPickupData.timeSlot}</strong></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="verified-metadata-grid">
+                  <div className="v-meta-card">
+                    <span className="v-label">Waste Item</span>
+                    <strong className="v-val">{scheduledPickupData.wasteType}</strong>
+                  </div>
+                  <div className="v-meta-card">
+                    <span className="v-label">Scheduled Weight</span>
+                    <strong className="v-val">{scheduledPickupData.quantity} kg</strong>
+                  </div>
+                  <div className="v-meta-card">
+                    <span className="v-label">Scrap Rate</span>
+                    <strong className="v-val">₹{scheduledPickupData.rate}/kg</strong>
+                  </div>
+                  <div className="v-meta-card">
+                    <span className="v-label">Pickup ID</span>
+                    <strong className="v-val text-truncate">{scheduledPickupData.id}</strong>
+                  </div>
+                </div>
+
+                {/* Eco Improvement Tip */}
+                <div className="eco-improvement-tip">
+                  <div className="tip-header">
+                    <Truck size={16} className="text-green" />
+                    <strong>Worker Pickup Guidelines</strong>
+                  </div>
+                  <p>
+                    Keep your {scheduledPickupData.wasteType} packed and accessible at <strong>{scheduledPickupData.address}</strong>. The worker will verify the scrap, after which the earnings will reflect in your User Dashboard wallet!
+                  </p>
+                </div>
+
+                {/* Navigation Actions */}
+                <div className="stage-3-actions">
+                  <Link to="/dashboard" className="btn-primary btn-lg">
+                    <LayoutDashboard size={17} />
+                    <span>Go to User Dashboard (View Pickup & Wallet)</span>
+                    <ArrowRight size={17} />
+                  </Link>
+
+                  {!workerPickupCompleted ? (
+                    <button onClick={handleCompleteWorkerHandoverNow} className="btn-secondary">
+                      <CheckCircle2 size={16} className="text-green" />
+                      <span>Worker Here? Confirm Pickup & Add ₹{scheduledPickupData.estimatedEarnings} to Dashboard</span>
+                    </button>
+                  ) : (
+                    <div className="completed-worker-pill">
+                      <CheckCircle2 size={16} className="text-green" />
+                      <span>✓ Worker Handover Completed! ₹{scheduledPickupData.estimatedEarnings} added to Dashboard Wallet.</span>
+                    </div>
+                  )}
+
+                  <Link to="/history" className="btn-secondary">
+                    <History size={16} />
+                    <span>View History</span>
+                  </Link>
+
+                  <button onClick={handleResetScan} className="btn-secondary">
+                    <RotateCcw size={16} />
+                    <span>Sell Another Waste Item</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

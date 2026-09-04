@@ -16,8 +16,9 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import About from './pages/About';
 
-// New AI & Campus Intelligence Pages
+// Core Pages
 import LiveAIDetection from './pages/LiveAIDetection';
+import ScanHistory from './pages/ScanHistory';
 import WasteAnalytics from './pages/WasteAnalytics';
 import LocationAnalytics from './pages/LocationAnalytics';
 import CampusCleanliness from './pages/CampusCleanliness';
@@ -60,8 +61,9 @@ function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/about" element={<About />} />
 
-          {/* AI & Campus Intelligence Routes */}
+          {/* AI & Core Routes */}
           <Route path="/ai-detection" element={<LiveAIDetection />} />
+          <Route path="/history" element={<ScanHistory />} />
           <Route path="/analytics" element={<WasteAnalytics />} />
           <Route path="/location-analytics" element={<LocationAnalytics />} />
           <Route path="/campus-cleanliness" element={<CampusCleanliness />} />

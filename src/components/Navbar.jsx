@@ -10,21 +10,17 @@ import {
   LayoutDashboard,
   CalendarCheck,
   Camera,
+  History,
   BarChart3,
-  Brain,
-  ShieldCheck,
-  ChevronDown,
-  Sparkles,
-  MapPin,
-  Activity
+  DollarSign,
+  Wallet
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
-  const [aiDropdownOpen, setAiDropdownOpen] = useState(false);
-  const { user, logout } = useApp();
+  const { user, logout, scans, walletBalance } = useApp();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -36,7 +32,6 @@ const Navbar = () => {
   const closeMenus = () => {
     setMobileMenuOpen(false);
     setUserDropdownOpen(false);
-    setAiDropdownOpen(false);
   };
 
   return (
@@ -49,7 +44,7 @@ const Navbar = () => {
           </span>
           <div className="brand-text-group">
             <span className="brand-title">Trash2Cash <span className="text-highlight">AI</span></span>
-            <span className="brand-badge">Campus AI</span>
+            <span className="brand-badge">Waste Detection</span>
           </div>
         </Link>
 
@@ -63,13 +58,6 @@ const Navbar = () => {
           </NavLink>
 
           <NavLink
-            to="/sell-waste"
-            className={({ isActive }) => (isActive ? 'nav-link nav-link-active' : 'nav-link')}
-          >
-            Sell Waste
-          </NavLink>
-
-          <NavLink
             to="/ai-detection"
             className={({ isActive }) => (isActive ? 'nav-link nav-link-active' : 'nav-link')}
           >
@@ -77,59 +65,26 @@ const Navbar = () => {
             AI Detection
           </NavLink>
 
-          {/* AI Intelligence Dropdown */}
-          <div
-            className="nav-dropdown-wrapper"
-            onMouseEnter={() => setAiDropdownOpen(true)}
-            onMouseLeave={() => setAiDropdownOpen(false)}
-          >
-            <button className="nav-dropdown-trigger">
-              <span>Campus Intel</span>
-              <ChevronDown size={14} />
-            </button>
-
-            {aiDropdownOpen && (
-              <div className="nav-dropdown-menu">
-                <Link to="/analytics" className="dropdown-item" onClick={closeMenus}>
-                  <BarChart3 size={16} className="text-green" />
-                  <div>
-                    <strong>Waste Analytics</strong>
-                    <span className="item-sub">Stream & contamination trends</span>
-                  </div>
-                </Link>
-
-                <Link to="/location-analytics" className="dropdown-item" onClick={closeMenus}>
-                  <MapPin size={16} className="text-green" />
-                  <div>
-                    <strong>Location Analytics</strong>
-                    <span className="item-sub">Zone & problem hotspot matrix</span>
-                  </div>
-                </Link>
-
-                <Link to="/campus-cleanliness" className="dropdown-item" onClick={closeMenus}>
-                  <Activity size={16} className="text-green" />
-                  <div>
-                    <strong>Campus Cleanliness</strong>
-                    <span className="item-sub">Sanitation index (82/100)</span>
-                  </div>
-                </Link>
-
-                <Link to="/ai-insights" className="dropdown-item" onClick={closeMenus}>
-                  <Brain size={16} className="text-green" />
-                  <div>
-                    <strong>AI Recommendations</strong>
-                    <span className="item-sub">Heuristic operational actions</span>
-                  </div>
-                </Link>
-              </div>
-            )}
-          </div>
-
           <NavLink
-            to="/admin-dashboard"
+            to="/history"
             className={({ isActive }) => (isActive ? 'nav-link nav-link-active' : 'nav-link')}
           >
-            Admin
+            History
+            {scans.length > 0 && <span className="nav-count-badge">{scans.length}</span>}
+          </NavLink>
+
+          <NavLink
+            to="/analytics"
+            className={({ isActive }) => (isActive ? 'nav-link nav-link-active' : 'nav-link')}
+          >
+            Analytics
+          </NavLink>
+
+          <NavLink
+            to="/sell-waste"
+            className={({ isActive }) => (isActive ? 'nav-link nav-link-active' : 'nav-link')}
+          >
+            Sell Waste
           </NavLink>
 
           <NavLink
@@ -142,6 +97,16 @@ const Navbar = () => {
 
         {/* Right CTA / Auth Controls */}
         <div className="navbar-actions">
+          <Link to="/dashboard" className="navbar-wallet-badge" title="Trash2Cash Reward Wallet Balance">
+            <Wallet size={15} className="text-green" />
+            <span className="wallet-val">₹{walletBalance}</span>
+          </Link>
+
+          <Link to="/ai-detection" className="btn-primary btn-sm nav-scan-btn">
+            <Camera size={15} />
+            <span>Scan Waste</span>
+          </Link>
+
           {user ? (
             <div className="user-menu-wrapper">
               <button
@@ -158,24 +123,28 @@ const Navbar = () => {
               {userDropdownOpen && (
                 <div className="user-dropdown-menu">
                   <div className="dropdown-header">
-                    <p className="dropdown-user-name">{user.name}</p>
-                    <p className="dropdown-user-email">{user.email}</p>
+                    <p className="font-semibold">{user.name}</p>
+                    <p className="text-xs text-muted">{user.email}</p>
                   </div>
-                  <hr className="dropdown-divider" />
+                  <div className="dropdown-divider"></div>
+
                   <Link to="/dashboard" className="dropdown-item" onClick={closeMenus}>
                     <LayoutDashboard size={16} />
-                    <span>Citizen Dashboard</span>
+                    <span>My Dashboard</span>
                   </Link>
+
+                  <Link to="/history" className="dropdown-item" onClick={closeMenus}>
+                    <History size={16} />
+                    <span>My Scans ({scans.length})</span>
+                  </Link>
+
                   <Link to="/schedule-pickup" className="dropdown-item" onClick={closeMenus}>
                     <CalendarCheck size={16} />
                     <span>Schedule Pickup</span>
                   </Link>
-                  <Link to="/admin-dashboard" className="dropdown-item" onClick={closeMenus}>
-                    <ShieldCheck size={16} />
-                    <span>Admin Console</span>
-                  </Link>
-                  <hr className="dropdown-divider" />
-                  <button onClick={handleLogout} className="dropdown-item logout-btn">
+
+                  <div className="dropdown-divider"></div>
+                  <button onClick={handleLogout} className="dropdown-item text-red w-full text-left">
                     <LogOut size={16} />
                     <span>Log Out</span>
                   </button>
@@ -183,26 +152,21 @@ const Navbar = () => {
               )}
             </div>
           ) : (
-            <div className="auth-links">
-              <Link to="/login" className="login-link">
-                Login
+            <div className="auth-buttons-group">
+              <Link to="/login" className="btn-secondary btn-sm">
+                Log In
               </Link>
-              <Link to="/signup" className="signup-pill-btn">
+              <Link to="/signup" className="btn-primary btn-sm">
                 Sign Up
               </Link>
             </div>
           )}
 
-          <Link to="/sell-waste" className="btn-primary sell-btn-nav">
-            <span>Sell Waste</span>
-            <ArrowRight size={16} />
-          </Link>
-
-          {/* Mobile Hamburger Toggle */}
+          {/* Mobile Menu Toggle */}
           <button
-            className="mobile-menu-toggle"
+            className="mobile-toggle-btn"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label="Toggle mobile menu"
+            aria-label="Toggle navigation menu"
           >
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
@@ -214,44 +178,32 @@ const Navbar = () => {
         <div className="mobile-drawer">
           <div className="mobile-drawer-inner">
             <nav className="mobile-nav-list">
-              <div className="mobile-group-label">CITIZEN SERVICES</div>
+              <div className="mobile-group-label">CORE FEATURES</div>
               <NavLink to="/" onClick={closeMenus} className="mobile-nav-item">
-                Home
+                🏠 Home
               </NavLink>
-              <NavLink to="/sell-waste" onClick={closeMenus} className="mobile-nav-item">
-                Sell Waste
-              </NavLink>
-              <NavLink to="/prices" onClick={closeMenus} className="mobile-nav-item">
-                Scrap Prices
-              </NavLink>
-              <NavLink to="/categories" onClick={closeMenus} className="mobile-nav-item">
-                Categories
-              </NavLink>
-              <NavLink to="/schedule-pickup" onClick={closeMenus} className="mobile-nav-item">
-                Schedule Pickup
-              </NavLink>
-              <NavLink to="/dashboard" onClick={closeMenus} className="mobile-nav-item">
-                User Rewards Dashboard
-              </NavLink>
-
-              <div className="mobile-group-label mt-2">CAMPUS AI INTELLIGENCE</div>
               <NavLink to="/ai-detection" onClick={closeMenus} className="mobile-nav-item">
-                🤖 Live AI Detection
+                📸 AI Waste Detection
+              </NavLink>
+              <NavLink to="/history" onClick={closeMenus} className="mobile-nav-item">
+                📜 Scan History ({scans.length})
               </NavLink>
               <NavLink to="/analytics" onClick={closeMenus} className="mobile-nav-item">
-                📊 Waste Stream Analytics
+                📊 Waste Analytics
               </NavLink>
-              <NavLink to="/location-analytics" onClick={closeMenus} className="mobile-nav-item">
-                📍 Location Spatial Telemetry
+
+              <div className="mobile-group-label mt-2">RECYCLING SERVICES</div>
+              <NavLink to="/sell-waste" onClick={closeMenus} className="mobile-nav-item">
+                ♻️ Sell Recyclable Waste
               </NavLink>
-              <NavLink to="/campus-cleanliness" onClick={closeMenus} className="mobile-nav-item">
-                ✨ Campus Cleanliness Index
+              <NavLink to="/prices" onClick={closeMenus} className="mobile-nav-item">
+                🏷️ Waste Rates & Prices
               </NavLink>
-              <NavLink to="/ai-insights" onClick={closeMenus} className="mobile-nav-item">
-                🧠 AI Recommendations
+              <NavLink to="/schedule-pickup" onClick={closeMenus} className="mobile-nav-item">
+                📅 Schedule Scrap Pickup
               </NavLink>
-              <NavLink to="/admin-dashboard" onClick={closeMenus} className="mobile-nav-item">
-                🛡️ Admin Intelligence Console
+              <NavLink to="/dashboard" onClick={closeMenus} className="mobile-nav-item">
+                👤 User Rewards Dashboard
               </NavLink>
             </nav>
 
